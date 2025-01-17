@@ -1,18 +1,6 @@
 import numpy as np
 from config import simulation_config
 
-# Behaviour Variables
-perception_range =  simulation_config["perception_range"]
-avoidance_radius =  simulation_config["avoidance_radius"]
-max_speed =         simulation_config["max_speed"]
-acceleration =      simulation_config["acceleration"]
-
-# Weights
-cohesion_weight =   simulation_config["cohesion_weight"]
-alignment_weight =  simulation_config["alignment_weight"]
-separation_weight = simulation_config["separation_weight"]
-momentum_weight =   simulation_config["momentum_weight"]
-
 class Agent:
     # Class level variable to store all agents
     all_agents = []
