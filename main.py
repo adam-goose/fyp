@@ -1,40 +1,62 @@
-from vpython import sphere, vector, rate, canvas
+from ursina import *
 from agent import Agent
 from config import simulation_config
 import numpy as np
 
-# Create a standalove VPython window
-scene = canvas(title="Swarm Simulation",
-               width=800, height=600,
-               center=vector(0, 0, 0), backgroudn=vector(0.2, 0.2, 0.2))
+# Initialise the Ursina app
+app = Ursina()
 
 # Initialize agents
 agents = [
     Agent(position=[0, 1, 0], direction=[1.2, 0, 0], speed=1.0),
     Agent(position=[2, 2, 1], direction=[0, 1.4, 0], speed=1.0),
-    Agent(position=[3, 3, 0], direction=[-0.1, 0.5, 0], speed=1.0)
+    Agent(position=[3, 3, 0], direction=[-0.1, 0.5, 0], speed=1.0),
+    Agent(position=[0, 2, 0], direction=[1.2, 0, 0], speed=1.0),
+    Agent(position=[2, 3, 1], direction=[0, 1.4, 0], speed=1.0),
+    Agent(position=[3, 3, 4], direction=[-0.1, 0.5, 0], speed=1.0),
+    Agent(position=[0, 1, 4], direction=[1.2, 0, 0], speed=1.0),
+    Agent(position=[3, 2, 1], direction=[0, 1.4, 0], speed=1.0),
+    Agent(position=[3, 4, 0], direction=[-0.1, 0.5, 0], speed=1.0)
 ]
 
-# Initialise VPython spheres for agents
-vpython_spheres = [sphere(pos=vector(agent.position[0], agent.position[1], agent.position[2]),
-                          radius=0.5, color=vector(0, 1, 0)) for agent in agents]
+# Create an Ursina Entity for each agent and store in a list
+agent_entities = [Entity(model="sphere", color=color.random_color(), scale=0.2, position=agent.position) for agent in agents]
+
+# Define camera position and direction
+camera.position = (25,20, -70)  # Adjust as needed
+camera.look_at((0, 0, 0))  # Ensure the camera looks at the center of the scene
+
+boundary = Entity(model=Mesh(vertices=[Vec3(-10, -10, -10), Vec3(10, -10, -10), Vec3(10, 10, -10), Vec3(-10, 10, -10),
+                                     Vec3(-10, -10, 10), Vec3(10, -10, 10), Vec3(10, 10, 10), Vec3(-10, 10, 10)],
+                            triangles=[(0,1,2), (0,2,3), (4,5,6), (4,6,7), (0,1,5), (0,5,4), (1,2,6), (1,6,5),
+                                       (2,3,7), (2,7,6), (3,0,4), (3,4,7)], mode='line'), color=color.white)
 
 
-# Simulation parameters
-num_frames = 20
+# Frame timing setup
+frame_duration = 1 / 30  # 30 FPS
 
-# Simulation loop
-for frame in range(num_frames):
-    print(f"Frame {frame + 1}")
-    for i, agent in enumerate(agents):
-        # Update the agent's position and direction
-        agent.update_position()
+last_time = time.time()
 
-        vpython_spheres[i].pos = vector(agent.position[0], agent.position[1], agent.position[2])
+def update():
+    global last_time
+    current_time = time.time()
+    elapsed_time = current_time - last_time
 
-    rate(2) # Frame rate of simulation
+    if elapsed_time < frame_duration:
+        time.sleep(frame_duration - elapsed_time)  # Sleep to maintain 30 FPS
 
-# Keep the VPython window open after the simulation ends
-print("Simulation complete. The window will remain open.")
-while True:
-    rate(30)  # This keeps the window responsive
+    # Update simulation logic and render positions
+    for agent, entity in zip(agents, agent_entities):
+        agent.update_position()  # Update agent logic
+
+        # Constrain positions within boundaries (example: -10 to 10 in all axes)
+        agent.position[0] = max(min(agent.position[0], 10), -10)
+        agent.position[1] = max(min(agent.position[1], 10), -10)
+        agent.position[2] = max(min(agent.position[2], 10), -10)
+
+        entity.position = agent.position  # Sync visual position with logic
+
+    last_time = time.time()
+
+# Run the Ursina app
+app.run()
