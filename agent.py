@@ -9,7 +9,10 @@ class Agent:
         self.position = np.array(position, dtype=float) # Ensure position is a numpy array
         self.direction = np.array(direction, dtype=float) # Ensure direction is a numpy array
         self.direction = self.direction / np.linalg.norm(self.direction) # Normalise direction to make it a unit vector
-        self.speed = speed # Assign speed
+        self.desired_speed = simulation_config["desired_speed"] # Assigns desired speed
+        self.max_speed = simulation_config["max_speed"] # Assigns the maximum speed
+        self.min_speed = simulation_config["min_speed"] # Assigns the minimum speed
+        self.speed = speed # Assign actual speed
 
         # Add self to the class level all_agents list
         Agent.all_agents.append(self)
@@ -84,6 +87,46 @@ class Agent:
                     neighbours.append(agent)
         return neighbours
 
+    def adjust_speed(self, combined_vector):
+        """
+        Adjust the agent's speed based on the alignment of the current momentum
+        with the desired movement (combined vector).
+        """
+        # Calculate the dot product of current momentum and the combined vector
+        alignment = np.dot(self.direction, combined_vector)  # Dot product for alignment
+        alignment = max(-1, min(1, alignment))  # Clamp to [-1, 1]
+
+        # If alignment is high, accelerate toward desired speed
+        if alignment > 0.9:  # Nearly aligned
+            self.speed += (self.desired_speed - self.speed) * 0.01  # Smooth acceleration
+        else:  # If not aligned, reduce speed
+            self.speed -= abs((1 - alignment)) * 0.5  # Deceleration penalty
+
+        # Clamp the speed to a valid range
+        self.speed = max(self.min_speed, min(self.max_speed, self.speed))
+
+    def calc_wall_repulsion(self):
+        repulsion_force = np.array([0.0, 0.0, 0.0])  # Initialize to zero
+        threshold = 2.0  # Distance threshold to trigger repulsion
+
+        # Check against each boundary
+        if self.position[0] < simulation_config["x_min"] + threshold:
+            repulsion_force[0] += 1 / (self.position[0] - simulation_config["x_min"] + 0.1)  # Push away from x_min
+        if self.position[0] > simulation_config["x_max"] - threshold:
+            repulsion_force[0] -= 1 / (simulation_config["x_max"] - self.position[0] + 0.1)  # Push away from x_max
+
+        if self.position[1] < simulation_config["y_min"] + threshold:
+            repulsion_force[1] += 1 / (self.position[1] - simulation_config["y_min"] + 0.1)  # Push away from y_min
+        if self.position[1] > simulation_config["y_max"] - threshold:
+            repulsion_force[1] -= 1 / (simulation_config["y_max"] - self.position[1] + 0.1)  # Push away from y_max
+
+        if self.position[2] < simulation_config["z_min"] + threshold:
+            repulsion_force[2] += 1 / (self.position[2] - simulation_config["z_min"] + 0.1)  # Push away from z_min
+        if self.position[2] > simulation_config["z_max"] - threshold:
+            repulsion_force[2] -= 1 / (simulation_config["z_max"] - self.position[2] + 0.1)  # Push away from z_max
+
+        return repulsion_force
+
     def calc_movement(self):
         # Pre-filter neighbors once based on the maximum perception radius
         filtered_neighbors = self.get_neighbours_within_radius()
@@ -95,18 +138,22 @@ class Agent:
 
         # Calculate current momentum (direction * speed)
         current_momentum = self.direction * self.speed
+        wall_repulsion_vector = self.calc_wall_repulsion()
 
         # Combine vectors with weights
         combined_vector = (
                 simulation_config["cohesion_weight"] * cohesion_vector +
                 simulation_config["alignment_weight"] * alignment_vector +
                 simulation_config["separation_weight"] * separation_vector +
-                simulation_config["momentum_weight"] * current_momentum
+                simulation_config["momentum_weight"] * current_momentum +
+                simulation_config["wall_repulsion_weight"] * wall_repulsion_vector
         )
 
         # Normalize the final movement vector
         if np.linalg.norm(combined_vector) > 0:
             combined_vector = combined_vector / np.linalg.norm(combined_vector)
+
+        self.adjust_speed(combined_vector)
 
         return combined_vector
 

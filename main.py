@@ -1,5 +1,6 @@
 from ursina import *
 from agent import Agent
+from simulation import *
 from config import simulation_config
 import numpy as np
 
@@ -7,17 +8,7 @@ import numpy as np
 app = Ursina()
 
 # Initialize agents
-agents = [
-    Agent(position=[0, 1, 0], direction=[1.2, 0, 0], speed=1.0),
-    Agent(position=[2, 2, 1], direction=[0, 1.4, 0], speed=1.0),
-    Agent(position=[3, 3, 0], direction=[-0.1, 0.5, 0], speed=1.0),
-    Agent(position=[0, 2, 0], direction=[1.2, 0, 0], speed=1.0),
-    Agent(position=[2, 3, 1], direction=[0, 1.4, 0], speed=1.0),
-    Agent(position=[3, 3, 4], direction=[-0.1, 0.5, 0], speed=1.0),
-    Agent(position=[0, 1, 4], direction=[1.2, 0, 0], speed=1.0),
-    Agent(position=[3, 2, 1], direction=[0, 1.4, 0], speed=1.0),
-    Agent(position=[3, 4, 0], direction=[-0.1, 0.5, 0], speed=1.0)
-]
+agents = spawn_agents()
 
 # Create an Ursina Entity for each agent and store in a list
 agent_entities = [Entity(model="sphere", color=color.random_color(), scale=0.2, position=agent.position) for agent in agents]
