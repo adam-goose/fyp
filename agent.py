@@ -225,48 +225,78 @@ class Agent:
         # Clamp the speed to a valid range
         self.speed = max(self.min_speed, min(self.max_speed, self.speed))
 
-    def calc_wall_repulsion(self):
+    @staticmethod
+    def calculate_boundary_repulsion(position, min_boundary, max_boundary, threshold, max_force):
         """
-        Calculate the repulsion force from the boundaries of the simulation space.
+        Calculate the repulsion force for a position based on proximity to both min and max boundaries.
 
-        This method calculates a repulsion vector for the agent based on its
-        proximity to the defined simulation boundaries. The repulsion force
-        increases as the agent gets closer to a boundary and is inversely
-        proportional to the distance to the boundary. This ensures agents are
-        pushed back into the simulation space smoothly.
+        Args:
+            position (float): Current position along an axis.
+            min_boundary (float): The minimum boundary for the axis.
+            max_boundary (float): The maximum boundary for the axis.
+            threshold (float): Distance threshold at which the repulsion force starts applying.
+            max_force (float): The maximum repulsion force applied when the position is at the boundary.
 
         Returns:
-            np.ndarray: A 3D vector representing the repulsion force from the walls.
+            float: The calculated repulsion force for this axis.
         """
-        # Initialise the repulsion force vector to zero
-        repulsion_force = np.array([0.0, 0.0, 0.0])
+        if position < min_boundary + threshold:
+            # If the position is close to or beyond the minimum boundary:
+            # Calculate the distance from the agent to the min boundary.
+            distance = position - min_boundary
 
-        # Define the threshold distance to trigger the repulsion force
-        threshold = 2.0
+            # The repulsion force increases linearly as the agent gets closer
+            # to the min boundary, reaching max_force when distance is 0
+            # and more than max force when the agent leaves the boundary.
+            return max_force * (threshold - distance) / threshold
 
-        # Check against each boundary
-        if self.position[0] < simulation_config["x_min"] + threshold:
-            # Push away from x_min
-            repulsion_force[0] += 1 / (self.position[0] - simulation_config["x_min"] + 0.1)  # Push away from x_min
-        if self.position[0] > simulation_config["x_max"] - threshold:
-            # Push away from x_max
-            repulsion_force[0] -= 1 / (simulation_config["x_max"] - self.position[0] + 0.1)  # Push away from x_max
+        elif position > max_boundary - threshold:
+            # If the position is close to or beyond the maximum boundary:
+            # Calculate the distance from the agent to the max boundary.
+            distance = max_boundary - position
 
-        if self.position[1] < simulation_config["y_min"] + threshold:
-            # Push away from y_min
-            repulsion_force[1] += 1 / (self.position[1] - simulation_config["y_min"] + 0.1)  # Push away from y_min
-        if self.position[1] > simulation_config["y_max"] - threshold:
-            # Push away from y_max
-            repulsion_force[1] -= 1 / (simulation_config["y_max"] - self.position[1] + 0.1)  # Push away from y_max
+            # The repulsion force increases linearly as the agent gets closer
+            # to the max boundary, reaching -max_force when distance is 0
+            # and more than max force when the agent leaves the boundary.
+            return -max_force * (threshold - distance) / threshold
 
-        if self.position[2] < simulation_config["z_min"] + threshold:
-            # Push away from z_min
-            repulsion_force[2] += 1 / (self.position[2] - simulation_config["z_min"] + 0.1)  # Push away from z_min
-        if self.position[2] > simulation_config["z_max"] - threshold:
-            # Push away from z_max
-            repulsion_force[2] -= 1 / (simulation_config["z_max"] - self.position[2] + 0.1)  # Push away from z_max
+        else:
+            # If the agent is within the safe bounds, no repulsion force is applied.
+            return 0.0
 
-        return repulsion_force # Return the calculated repulsion force
+    def calc_wall_repulsion(self):
+        """
+        Calculate the total wall repulsion force for all boundaries using a generalised function.
+
+        Returns:
+            np.ndarray: A 3D vector representing the repulsion force from walls.
+        """
+
+        repulsion_force = np.array([
+            Agent.calculate_boundary_repulsion(
+                self.position[0],
+                simulation_config["x_min"],
+                simulation_config["x_max"],
+                simulation_config["boundary_threshold"],
+                simulation_config["boundary_max_force"]
+            ),
+            Agent.calculate_boundary_repulsion(
+                self.position[1],
+                simulation_config["y_min"],
+                simulation_config["y_max"],
+                simulation_config["boundary_threshold"],
+                simulation_config["boundary_max_force"]
+            ),
+            Agent.calculate_boundary_repulsion(
+                self.position[2],
+                simulation_config["z_min"],
+                simulation_config["z_max"],
+                simulation_config["boundary_threshold"],
+                simulation_config["boundary_max_force"]
+            )
+        ])
+
+        return repulsion_force  # Returns the repulsion force vector
 
     def calc_movement(self):
         """
