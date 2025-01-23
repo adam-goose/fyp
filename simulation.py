@@ -1,22 +1,79 @@
 import random
+from ursina import *
 from agent import Agent
 from config import simulation_config
 
-# Returns list of randomly generated agents
+# Frame timing setup
+frame_duration = simulation_config["frame_duration"]
+
+# Define camera position and direction
+def set_camera():
+    """
+    Define camera position and direction according to values set by simulation_config.
+
+    """
+    camera.position = simulation_config["camera_position"]  # Position of the camera within the scene
+    camera.look_at(simulation_config["camera_look_at"])  # Direction the camera looks at
+
+
+def create_boundary():
+    """
+    Create a 3D boundary box using the boundary values from simulation_config.
+
+    Returns:
+        Entity: A boundary box as an Entity with a wireframe model.
+    """
+    vertices = [
+        # Define the vertices of the boundary box
+        Vec3(simulation_config["x_min"], simulation_config["y_min"], simulation_config["z_min"]),   # Bottom-front-left
+        Vec3(simulation_config["x_max"], simulation_config["y_min"], simulation_config["z_min"]),   # Bottom-front-right
+        Vec3(simulation_config["x_max"], simulation_config["y_max"], simulation_config["z_min"]),   # Top-front-right
+        Vec3(simulation_config["x_min"], simulation_config["y_max"], simulation_config["z_min"]),   # Top-front-left
+        Vec3(simulation_config["x_min"], simulation_config["y_min"], simulation_config["z_max"]),   # Bottom-back-left
+        Vec3(simulation_config["x_max"], simulation_config["y_min"], simulation_config["z_max"]),   # Bottom-back-right
+        Vec3(simulation_config["x_max"], simulation_config["y_max"], simulation_config["z_max"]),   # Top-back-left
+        Vec3(simulation_config["x_min"], simulation_config["y_max"], simulation_config["z_max"])    # Top-back-right
+    ]
+
+    triangles = [
+        # This is super confusing and I don't know how I got it to look right
+        (0, 1, 2), (0, 2, 3),  # Bottom face
+        (4, 5, 6), (4, 6, 7),  # Top face
+        (0, 1, 5), (0, 5, 4),  # Front face
+        (3, 1, 4),             # Front face diagonal
+        (1, 2, 6), (1, 6, 5),  # Right face
+        (2, 3, 7), (2, 7, 6),  # Back face
+        (7, 5, 6),             # Back face diagonal
+        (3, 0, 4), (3, 4, 7)   # Left face
+    ]
+
+    # Create and return the Entity for the boundary
+    return Entity(
+        model=Mesh(vertices=vertices, triangles=triangles, mode='line'), # Use the wireframe mode
+        color=color.white # Set the wireframe colour to white
+    )
+
+
 def spawn_agents():
+    """
+    Spawn agents according to values set by simulation_config.
+
+    Returns: List of agents with set position and direction.
+    """
     return [
         Agent(
             position=[
-                random.uniform(*simulation_config["position_bounds"]),  # Random x
-                random.uniform(*simulation_config["position_bounds"]),  # Random y
-                random.uniform(*simulation_config["position_bounds"])  # Random z
+                random.uniform(*simulation_config["init_position_bounds"]), # Random x position within config bounds
+                random.uniform(*simulation_config["init_position_bounds"]), # Random y position within config bounds
+                random.uniform(*simulation_config["init_position_bounds"])  # Random z position within config bounds
             ],
             direction=[
-                random.uniform(*simulation_config["direction_bounds"]),  # Random x direction
-                random.uniform(*simulation_config["direction_bounds"]),  # Random y direction
-                random.uniform(*simulation_config["direction_bounds"])  # Random z direction
-            ],
-            speed=random.uniform(*simulation_config["speed_bounds"])  # Random speed
+                random.uniform(*simulation_config["init_direction_bounds"]), # Random x direction within config bounds
+                random.uniform(*simulation_config["init_direction_bounds"]), # Random y direction within config bounds
+                random.uniform(*simulation_config["init_direction_bounds"])  # Random z direction within config bounds
+            ]
         )
+        # Repeat for as many agents as specified by configuration
         for _ in range(simulation_config["num_agents"])
     ]
+

@@ -213,14 +213,14 @@ class Agent:
             None: The agent's speed is updated in place.
         """
         # Calculate the dot product of current momentum and the combined vector
-        alignment = np.dot(self.direction, combined_vector)  # Dot product for alignment
-        alignment = max(-1, min(1, alignment))  # Clamp to [-1, 1]
+        heading_alignment = np.dot(self.direction, combined_vector)  # Dot product for alignment
+        heading_alignment = max(-1, min(1, heading_alignment))  # Clamp to [-1, 1]
 
         # If alignment is high, accelerate toward desired speed
-        if alignment > 0.9:  # If nearly aligned
-            self.speed += (self.desired_speed - self.speed) * 0.01  # Smooth acceleration
+        if heading_alignment > simulation_config["heading_alignment_threshold"]:  # If nearly aligned
+            self.speed += (self.desired_speed - self.speed) * simulation_config["acceleration"]  # Smooth acceleration
         else:  # If not aligned, reduce speed
-            self.speed -= abs((1 - alignment)) * 0.05  # Deceleration penalty
+            self.speed -= abs((1 - heading_alignment)) * simulation_config["deceleration"]  # Deceleration penalty
 
         # Clamp the speed to a valid range
         self.speed = max(self.min_speed, min(self.max_speed, self.speed))
