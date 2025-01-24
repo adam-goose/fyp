@@ -1,3 +1,10 @@
+def get_movement_model_by_name(name):
+    if name == "Boids":
+        from movement_model import Boids
+        return Boids()
+    # Add other models here
+    raise ValueError(f"Unknown movement model: {name}")
+
 
 simulation_config = {
     # Core Physics Variables
@@ -21,6 +28,7 @@ simulation_config = {
     "separation_weight": 2.0,
 
     # Simulation Variables
+    "movement_model": "Boids",              # The movement model
     "camera_position": (25, 20, -70),       # Camera position
     "camera_look_at": (0, 0, 0),            # Where the camera looks
     "frame_duration": 1/60,                 # Duration of the frame per second
@@ -37,7 +45,7 @@ simulation_config = {
     "y_min": -10,
     "z_max": 10,
     "z_min": -10,
-    "wall_repulsion_weight": 0.01,
+    "wall_repulsion_weight": 1.0,
     "boundary_threshold": 2.0,
     "boundary_max_force": 10.0
 }
