@@ -5,19 +5,23 @@ def get_movement_model_by_name(name):
     # Add other models here
     raise ValueError(f"Unknown movement model: {name}")
 
+def update_config(key, slider):
+    simulation_config[key] = slider.value
+    print(f"{key} updated to: {simulation_config[key]}")
 
 simulation_config = {
     # Core Physics Variables
     "perception_radius": 3.0,
-    "collision_radius": 0,
-    "min_speed": 0.0,
-    "max_speed": 5.0,
+    "min_speed": 0.1,
+    "max_speed": 2.0,
     "desired_speed": 2.0,
     "acceleration": 0.01,
-    "deceleration": 0.05,
+    "deceleration": 5000,
+    "max_lateral_acceleration": 0.1,
     "momentum_weight": 10.0,
-    "delta_time": 0.1,
-    "heading_alignment_threshold": 0.9,
+    "dt": 0.1,
+    "turning_threshold": 0.9,
+    "heading_alignment_threshold": 0.1,
 
     # Cohesion, Alignment, Separation
     "cohesion_radius": 3.0,
@@ -32,7 +36,7 @@ simulation_config = {
     "camera_position": (25, 20, -70),       # Camera position
     "camera_look_at": (0, 0, 0),            # Where the camera looks
     "frame_duration": 1/60,                 # Duration of the frame per second
-    "num_agents": 30,                       # Number of agents
+    "num_agents": 50,                       # Number of agents
     "init_position_bounds": (-10, 10),      # Initial spawned position range for agents
     "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
     "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents

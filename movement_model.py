@@ -25,7 +25,7 @@ class Boids(MovementModel):
         update_position: Updates the agent's position using its current speed and direction.
     """
     @staticmethod
-    def get_neighbours_within_radius(current_agent):
+    def get_neighbours_within_radius(current_agent, all_agents=None, perception_radius=None):
         """
         Find all neighboring agents within the perception radius of this agent.
 
@@ -34,26 +34,37 @@ class Boids(MovementModel):
         agents that are within the defined perception radius, excluding the agent itself.
 
         Args:
-            current_agent (Agent): The current agent performing movement model calculations.
+            current_agent (Agent): The current agent performing the neighbor search.
+            all_agents (list[Agent], optional): The list of agents to search through.
+                Defaults to Agent.all_agents if not provided.
+            perception_radius (float, optional): The maximum distance within which
+                an agent is considered a neighbor. If None, defaults to the global
+                value in simulation_config["perception_radius"].
 
         Returns:
-            list: A list of Agent objects that are within the perception radius.
+            list[Agent]: A list of Agent objects that are within the perception radius.
         """
         neighbours = [] # Initialises an empty list to store neighbouring agents
 
-        for agent in Agent.all_agents:  # Access all agents in the simulation
+        if all_agents is None:
+            all_agents = Agent.all_agents  # Default to global list of all agents
+
+        if perception_radius is None:
+            perception_radius = simulation_config["perception_radius"]  # Use global config if radius is not passed
+
+        for agent in all_agents:  # Access all agents in the simulation
             if agent is not current_agent:  # Exclude the current agent itself
                 # Calculate the distance between the agent and the current agent
                 distance = np.linalg.norm(current_agent.position - agent.position)
 
                 # Check if the distance is within the perception radius
-                if distance <= simulation_config["perception_radius"]:
+                if distance <= perception_radius:
                     neighbours.append(agent) # Add the agent to the neighbours list
 
         return neighbours # Return the list of neighbours
 
     @staticmethod
-    def calc_cohesion(filtered_neighbours, current_agent):
+    def calc_cohesion(filtered_neighbours, current_agent, cohesion_radius=None):
         """
         Calculate the cohesion vector for the agent based on neighboring agents.
 
@@ -74,10 +85,13 @@ class Boids(MovementModel):
         cohesion_vector = np.array([0.0, 0.0, 0.0])
         count = 0
 
+        if cohesion_radius is None:
+            cohesion_radius = simulation_config["cohesion_radius"]
+
         # Use only neighbours within the cohesion radius
         for neighbour in filtered_neighbours:
             distance = np.linalg.norm(neighbour.position - current_agent.position) # Calculate distance to neighbour
-            if distance <= simulation_config["cohesion_radius"]: # Check if within cohesion_radius
+            if distance <= cohesion_radius: # Check if within cohesion_radius
                 cohesion_vector += neighbour.position # Add neighbour's position to the cohesion vector
                 count += 1 # Increment neighbour count
 
@@ -94,7 +108,7 @@ class Boids(MovementModel):
         return cohesion_vector # Return the final cohesion vector
 
     @staticmethod
-    def calc_alignment(filtered_neighbours, current_agent):
+    def calc_alignment(filtered_neighbours, current_agent, alignment_radius=None):
         """
         Calculate the alignment vector for the agent based on neighboring agents.
 
@@ -114,11 +128,14 @@ class Boids(MovementModel):
         alignment_vector = np.array([0.0, 0.0, 0.0])
         count = 0
 
+        if alignment_radius is None:
+            alignment_radius = simulation_config["alignment_radius"]
+
         # Use only neighbours within the alignment radius
         for neighbor in filtered_neighbours:
             # Calculate the distance between the agent and the neighbour
             distance = np.linalg.norm(neighbor.position - current_agent.position)
-            if distance <= simulation_config["alignment_radius"]: # Check if within alignment radius
+            if distance <= alignment_radius: # Check if within alignment radius
                 alignment_vector += neighbor.direction # Add the neighbour's direction to the alignment vector
                 count += 1 # Increment neighbour count
 
@@ -132,7 +149,7 @@ class Boids(MovementModel):
         return alignment_vector # Return the final alignment vector
 
     @staticmethod
-    def calc_separation(filtered_neighbours, current_agent):
+    def calc_separation(filtered_neighbours, current_agent, separation_radius=None):
         """
         Calculate the separation vector for the agent to avoid overcrowding.
 
@@ -152,13 +169,16 @@ class Boids(MovementModel):
         # Initialise the separation vector
         separation_vector = np.array([0.0, 0.0, 0.0])
 
+        if separation_radius is None:
+            separation_radius = simulation_config["separation_radius"]
+
         # Iterate over filtered neighbors
         for neighbor in filtered_neighbours:
             # Calculate the distance between the agent and the neighbour
             distance = np.linalg.norm(neighbor.position - current_agent.position)
 
             # Avoid division by zero and only consider neghbours within the separation radius
-            if 0 < distance <= simulation_config["separation_radius"]:
+            if 0 < distance <= separation_radius:
                 # Calculate the repulsion vector (inverse of the distance squared)
                 repulsion = (current_agent.position - neighbor.position) / (distance ** 2)
                 separation_vector += repulsion # Add the repulsion to the separation vector
@@ -208,7 +228,8 @@ class Boids(MovementModel):
         This method computes the combined influence of cohesion, alignment, separation,
         momentum, and wall repulsion forces. The forces are weighted and combined to
         determine the agent's next movement direction. The final vector is normalized
-        to ensure uniform movement magnitude.
+        to ensure uniform movement magnitude. If the final direction vector is near zero,
+        a small random vector is applied.
 
         Returns:
             np.ndarray: A normalized 3D vector representing the agent's new direction.
@@ -233,6 +254,13 @@ class Boids(MovementModel):
                 simulation_config["momentum_weight"] * current_momentum +
                 simulation_config["wall_repulsion_weight"] * wall_repulsion_vector
         )
+
+        # Check if the combined vector is zero or near-zero
+        vector_magnitude = np.linalg.norm(combined_vector)
+        if vector_magnitude < 1e-6:  # Threshold for near-zero magnitude
+            # Replace the zero vector with a random unit vector
+            combined_vector = np.random.uniform(-1, 1, size=3)
+            combined_vector /= np.linalg.norm(combined_vector)  # Normalize to unit length
 
         # Normalize the final movement vector if it has non-zero magnitude
         if np.linalg.norm(combined_vector) > 0:

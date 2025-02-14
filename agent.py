@@ -20,8 +20,6 @@ class Agent:
     desired_speed = simulation_config["desired_speed"]  # Assigns desired speed
     max_speed = simulation_config["max_speed"]  # Assigns the maximum speed
     min_speed = simulation_config["min_speed"]  # Assigns the minimum speed
-    speed = random.uniform(simulation_config["init_speed_bounds"][0], simulation_config["init_speed_bounds"][1])
-    # Initialise the agent's speed to a random value within the configured bounds
 
     def __init__(self, position, direction):
         """
@@ -45,6 +43,8 @@ class Agent:
         # Convert the direction to a numpy array and normalise it to a unit vector
         self.direction = np.array(direction, dtype=float) # Ensure direction is a numpy array
         self.direction = self.direction / np.linalg.norm(self.direction) # Normalise direction to make it a unit vector
+        self.speed = random.uniform(simulation_config["init_speed_bounds"][0], simulation_config["init_speed_bounds"][1])
+        # Initialise the agent's speed to a random value within the configured bounds
 
         # Add self to the class level all_agents list
         Agent.all_agents.append(self)
@@ -65,4 +65,4 @@ class Agent:
         self.direction = get_movement_model_by_name(simulation_config["movement_model"]).calc_movement(self, self.all_agents)
 
         # Update position using the new direction, current speed, and time step
-        self.position += self.direction * self.speed * simulation_config["delta_time"]
+        self.position += self.direction * self.speed * simulation_config["dt"]
