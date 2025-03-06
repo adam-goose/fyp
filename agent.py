@@ -17,9 +17,9 @@ class Agent:
     """
     # Class level variables
     all_agents = [] # Stores all agents in a list
-    desired_speed = simulation_config["desired_speed"]  # Assigns desired speed
     max_speed = simulation_config["max_speed"]  # Assigns the maximum speed
     min_speed = simulation_config["min_speed"]  # Assigns the minimum speed
+
 
     def __init__(self, position, direction):
         """
@@ -61,8 +61,6 @@ class Agent:
         Returns:
             None: The agent's position is updated in place.
         """
-        # The calculated combined vector from calc_movement is the agent's new direction
-        self.direction = get_movement_model_by_name(simulation_config["movement_model"]).calc_movement(self, self.all_agents)
 
-        # Update position using the new direction, current speed, and time step
-        self.position += self.direction * self.speed * simulation_config["dt"]
+        get_movement_model_by_name(simulation_config["movement_model"]).update_position(self, self.all_agents)
+

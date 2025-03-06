@@ -14,14 +14,12 @@ simulation_config = {
     "perception_radius": 3.0,
     "min_speed": 0.1,
     "max_speed": 2.0,
-    "desired_speed": 2.0,
-    "acceleration": 0.01,
-    "deceleration": 5000,
+    "acceleration": 0.001,
+    "deceleration": 0.001,
     "max_lateral_acceleration": 0.1,
     "momentum_weight": 10.0,
-    "dt": 0.1,
-    "turning_threshold": 0.9,
-    "heading_alignment_threshold": 0.1,
+    "direction_alpha": 0.1,
+    "turn_sensitivity": 5,
 
     # Cohesion, Alignment, Separation
     "cohesion_radius": 3.0,
@@ -41,6 +39,7 @@ simulation_config = {
     "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
     "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents
     "agent_scale": 0.2,                     # Scale of the agent entity in Ursina
+    "gravity": -1,
 
     # Simulation Boundaries
     "x_max": 10,

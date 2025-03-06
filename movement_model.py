@@ -11,6 +11,8 @@ class MovementModel:
     def calc_movement(self, current_agent, all_agents):
         raise NotImplementedError("Subclasses must implement calc_movement")
 
+
+
 class Boids(MovementModel):
     """
 
@@ -24,6 +26,8 @@ class Boids(MovementModel):
         adjust_speed: Adjusts the agent's speed dynamically based on movement alignment.
         update_position: Updates the agent's position using its current speed and direction.
     """
+
+
     @staticmethod
     def get_neighbours_within_radius(current_agent, all_agents=None, perception_radius=None):
         """
@@ -62,6 +66,7 @@ class Boids(MovementModel):
                     neighbours.append(agent) # Add the agent to the neighbours list
 
         return neighbours # Return the list of neighbours
+
 
     @staticmethod
     def calc_cohesion(filtered_neighbours, current_agent, cohesion_radius=None):
@@ -107,6 +112,7 @@ class Boids(MovementModel):
 
         return cohesion_vector # Return the final cohesion vector
 
+
     @staticmethod
     def calc_alignment(filtered_neighbours, current_agent, alignment_radius=None):
         """
@@ -147,6 +153,7 @@ class Boids(MovementModel):
             alignment_vector = alignment_vector / np.linalg.norm(alignment_vector)
 
         return alignment_vector # Return the final alignment vector
+
 
     @staticmethod
     def calc_separation(filtered_neighbours, current_agent, separation_radius=None):
@@ -189,51 +196,73 @@ class Boids(MovementModel):
 
         return separation_vector # Return the normalised separation vector
 
+
+    def update_position(self, current_agent, all_agents):
+        self.adjust_speed(current_agent)
+
+        velocity = current_agent.direction * current_agent.speed * simulation_config["momentum_weight"]
+
+        # Update position using the new direction, current speed, and time step
+        current_agent.position += velocity * 0.01
+
+
+    def adjust_speed(self, current_agent):
+
+        # Compute the desired target speed
+        target_speed = self.calc_speed(current_agent)
+
+        # If target speed is lower than current speed, decelerate smoothly
+        if target_speed < current_agent.speed:
+            speed_change = (current_agent.speed - target_speed) * (1 - np.exp(-simulation_config["deceleration"]))
+            current_agent.speed -= speed_change
+        else:
+            # Normal acceleration logic
+            speed_change = (target_speed - current_agent.speed) * (1 - np.exp(-simulation_config["acceleration"]))
+            current_agent.speed += speed_change
+
+        # Clamp speed between min and max
+        current_agent.speed = max(current_agent.min_speed, min(simulation_config["max_speed"], current_agent.speed))
+
+
+    def calc_speed(self, current_agent):
+        old_direction = self.adjust_direction(current_agent)
+
+        # Compute the angle between current and desired direction
+        alignment = np.dot(current_agent.direction, old_direction)
+        alignment = np.clip(alignment, -1, 1)
+        turn_angle = np.arccos(alignment)
+
+
+        # Define a small threshold for "going straight" (in radians)
+        straight_threshold = np.radians(simulation_config["turn_sensitivity"])  # Adjust this as needed
+
+        if turn_angle <= straight_threshold:
+            # Going nearly straight: full forward speed.
+            return simulation_config["max_speed"]
+        else:
+            # Turning: return a negative target speed to trigger deceleration.
+            return -abs(simulation_config["max_speed"])
+
+
+    def adjust_direction(self, current_agent):
+        # Normalize vectors to ensure unit length
+        current_direction = current_agent.direction / np.linalg.norm(current_agent.direction)
+        combined_vector = self.calc_direction(current_agent)
+
+        new_direction = (1 - simulation_config["direction_alpha"]) * current_direction + simulation_config[
+            "direction_alpha"] * combined_vector
+
+
+        # Normalize again to maintain unit vector
+        new_direction = new_direction / np.linalg.norm(new_direction)
+        old_direction = current_agent.direction
+        current_agent.direction = new_direction
+
+        return old_direction
+
+
     @staticmethod
-    def adjust_speed(combined_vector, current_agent):
-        """
-        Adjust the agent's speed dynamically based on alignment with the desired movement.
-
-        This method calculates the alignment between the agent's current direction
-        (momentum) and the new desired direction (combined_vector) using the dot
-        product. If the alignment is high, the agent accelerates smoothly toward its
-        desired speed. Otherwise, the agent decelerates proportionally to the misalignment.
-        This makes the agents slow down when turning and speed up when flying steadily.
-
-        Args:
-            combined_vector (np.ndarray): The desired movement vector after considering
-            cohesion, alignment, separation, and other forces.
-            current_agent (Agent): The current agent performing movement model calculations.
-
-        Returns:
-            None: The agent's speed is updated in place.
-        """
-        # Calculate the dot product of current momentum and the combined vector
-        heading_alignment = np.dot(current_agent.direction, combined_vector)  # Dot product for alignment
-        heading_alignment = max(-1, min(1, heading_alignment))  # Clamp to [-1, 1]
-
-        # If alignment is high, accelerate toward desired speed
-        if heading_alignment > simulation_config["heading_alignment_threshold"]:  # If nearly aligned
-            current_agent.speed += (current_agent.desired_speed - current_agent.speed) * simulation_config["acceleration"]  # Smooth acceleration
-        else:  # If not aligned, reduce speed
-            current_agent.speed -= abs((1 - heading_alignment)) * simulation_config["deceleration"]  # Deceleration penalty
-
-        # Clamp the speed to a valid range
-        current_agent.speed = max(current_agent.min_speed, min(current_agent.max_speed, current_agent.speed))
-
-    def calc_movement(self, current_agent, all_agents):
-        """
-        Calculate the agent's new movement vector based on flocking behaviors and environmental constraints.
-
-        This method computes the combined influence of cohesion, alignment, separation,
-        momentum, and wall repulsion forces. The forces are weighted and combined to
-        determine the agent's next movement direction. The final vector is normalized
-        to ensure uniform movement magnitude. If the final direction vector is near zero,
-        a small random vector is applied.
-
-        Returns:
-            np.ndarray: A normalized 3D vector representing the agent's new direction.
-        """
+    def calc_direction(current_agent):
         # Pre-filter neighbors once based on the maximum perception radius
         filtered_neighbors = Boids.get_neighbours_within_radius(current_agent)
 
@@ -242,8 +271,7 @@ class Boids(MovementModel):
         alignment_vector = Boids.calc_alignment(filtered_neighbors, current_agent)
         separation_vector = Boids.calc_separation(filtered_neighbors, current_agent)
 
-        # Calculate current momentum (direction * speed) and wall repulsion force
-        current_momentum = current_agent.direction * current_agent.speed  # Current momentum vector
+        # Calculate wall repulsion force
         wall_repulsion_vector = WallPhysics.calc_wall_repulsion(current_agent)  # Repulsion force from walls
 
         # Combine vectors with respective weights from simulation configuration
@@ -251,7 +279,6 @@ class Boids(MovementModel):
                 simulation_config["cohesion_weight"] * cohesion_vector +
                 simulation_config["alignment_weight"] * alignment_vector +
                 simulation_config["separation_weight"] * separation_vector +
-                simulation_config["momentum_weight"] * current_momentum +
                 simulation_config["wall_repulsion_weight"] * wall_repulsion_vector
         )
 
@@ -259,14 +286,10 @@ class Boids(MovementModel):
         vector_magnitude = np.linalg.norm(combined_vector)
         if vector_magnitude < 1e-6:  # Threshold for near-zero magnitude
             # Replace the zero vector with a random unit vector
-            combined_vector = np.random.uniform(-1, 1, size=3)
-            combined_vector /= np.linalg.norm(combined_vector)  # Normalize to unit length
+            combined_vector = current_agent.direction
 
-        # Normalize the final movement vector if it has non-zero magnitude
-        if np.linalg.norm(combined_vector) > 0:
-            combined_vector = combined_vector / np.linalg.norm(combined_vector)
+        combined_vector = combined_vector / np.linalg.norm(combined_vector)
 
-        # Adjust the agent's speed based on the combined movement vector
-        self.adjust_speed(combined_vector, current_agent)
+        return combined_vector
 
-        return combined_vector  # Return the normalised movement vector
+

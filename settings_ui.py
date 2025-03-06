@@ -6,19 +6,16 @@ from config import update_config
 
 agent_sliders = [
     {"min": 0, "max": 12, "default": 5.0, "text": "Max Speed", "key": "max_speed"},
-    {"min": 0, "max": 12, "default": 2.0, "text": "Desired Speed", "key": "desired_speed"},
-    {"min": 0, "max": 1, "default": 0.01, "text": "Acceleration", "key": "acceleration"},
-    {"min": 0, "max": 100, "default": 0.05, "text": "Deceleration", "key": "deceleration"},
+    {"min": 0, "max": 0.01, "default": 0.001, "text": "Acceleration", "key": "acceleration"},
+    {"min": 0, "max": 0.01, "default": 0.001, "text": "Deceleration", "key": "deceleration"},
     {"min": 0, "max": 0.2, "default": 0.1, "text": "Max Lateral Acc", "key": "max_lateral_acceleration"},
     {"min": 0, "max": 100, "default": 10.0, "text": "Momentum", "key": "momentum_weight"},
-    {"min": 0, "max": 1, "default": 0.9, "text": "Turning Threshold", "key": "turning_threshold"},
     {"min": 0, "max": 12, "default": 0.2, "text": "Scale", "key": "agent_scale"},
+    {"min": 0, "max": 10, "default": 5, "text": "Turn Sensitivity", "key": "turn_sensitivity"},
 ]
 
 simulation_sliders = [
-    {"min": 0, "max": 12, "default": 0.1, "text": "Delta Time", "key": "dt"},
     {"min": 0, "max": 12, "default": 50, "text": "Number of Agents", "key": "num_agents"},
-    {"min": 1/60, "max": 60/60, "default": 1/60, "text": "Frame Duration", "key": "frame_duration"},
     {"min": 0, "max": 12, "default": 10, "text": "X Boundary", "key": "x_max"},
     {"min": 0, "max": 12, "default": 10, "text": "Y Boundary", "key": "y_max"},
     {"min": 0, "max": 12, "default": 10, "text": "Z Boundary", "key": "z_max"},
@@ -26,10 +23,10 @@ simulation_sliders = [
 ]
 
 physics_sliders = [
-    {"min": 0, "max": 12, "default": 1.0, "text": "Wall Repulsion", "key": "wall_repulsion_weight"},
-    {"min": 0, "max": 12, "default": 2.0, "text": "Boundary Threshold", "key": "boundary_threshold"},
-    {"min": 0, "max": 12, "default": 10.0, "text": "Boundary Force", "key": "boundary_max_force"},
-    {"min": 0, "max": 12, "default": 0.0, "text": "Gravity", "key": "gravity"},  # Assuming gravity isn't explicitly set
+    {"min": 0, "max": 10, "default": 1.0, "text": "Boundary Repulsion Multiplier", "key": "wall_repulsion_weight"},
+    {"min": 0.01, "max": 12, "default": 2.0, "text": "Boundary Threshold", "key": "boundary_threshold"},
+    {"min": 0, "max": 10, "default": 10.0, "text": "Boundary Force", "key": "boundary_max_force"},
+    {"min": 0, "max": 10, "default": 0.0, "text": "Gravity", "key": "gravity"},  # Assuming gravity isn't explicitly set
 ]
 
 

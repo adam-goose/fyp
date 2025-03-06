@@ -60,6 +60,7 @@ def spawn_agents():
 
     Returns: List of agents with set position and direction.
     """
+    print(f"SPAWNING AGENTS ------")
     return [
         Agent(
             position=[
@@ -75,5 +76,6 @@ def spawn_agents():
         )
         # Repeat for as many agents as specified by configuration
         for _ in range(simulation_config["num_agents"])
+
     ]
 

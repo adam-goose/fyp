@@ -14,7 +14,21 @@ last_time = time.time()
 agents = spawn_agents()
 
 # Create an Ursina Entity for each agent and store in a list
-agent_entities = [Entity(model="sphere", color=color.blue, scale=simulation_config["agent_scale"], position=agent.position) for agent in agents]
+# DEBUGGING - MAKES THE FIRST AGENT RED, SECOND GREEN, AND THIRD YELLOW
+agent_entities = [
+    Entity(
+        model="sphere",
+        color=(
+            color.red if i == 0
+            else color.green if i == 1
+            else color.yellow if i == 2
+            else color.blue
+        ),
+        scale=simulation_config["agent_scale"],
+        position=agent.position
+    )
+    for i, agent in enumerate(agents)
+]
 
 boundary = simulation.create_boundary()
 simulation.set_camera()
@@ -31,6 +45,11 @@ def update():
         avg_speed = sum(agent.speed for agent in agents) / len(agents)
         speed_readout.text = f"Avg Speed: {avg_speed:.2f}"
 
+        first_agent_speed = agents[0].speed
+        first_agent_speed_readout.text = f"First Agent Speed: {first_agent_speed:.2f}"
+        second_agent_speed_readout.text = f"Second Agent Speed: {agents[1].speed:.2f}"
+        third_agent_speed_readout.text = f"Third Agent Speed: {agents[2].speed:.2f}"
+
     # Update simulation logic and render positions
     for agent, agent_entity in zip(agents, agent_entities):
         agent.update_position()  # Update agent logic
@@ -43,7 +62,11 @@ def update():
 window.size = (1400, 1000)
 window.borderless = False
 
+# DEBUGGING - GIVES AN AVERAGE SPEED READOUT AND SPECIFIC SPEEDS FOR FIRST 3 AGENTS
 speed_readout = Text(text="Avg Speed: 0.0", position=(-0.7, 0.4), scale=2, color=color.white)
+first_agent_speed_readout = Text(text="First Agent Speed: 0.0", position=(-0.7, 0.3), scale=2, color=color.white)
+second_agent_speed_readout = Text(text="Second Agent Speed: 0.0", position=(-0.7, 0.2), scale=2, color=color.white)
+third_agent_speed_readout = Text(text="Third Agent Speed: 0.0", position=(-0.7, 0.1), scale=2, color=color.white)
 
 # Create the settings UI and get the containers.
 ui_elements = create_settings_ui()
