@@ -1,34 +1,40 @@
 # settings_ui.py
 from ursina import *
 from config import update_config
+from config import *
 
 # Define Slider data for each category with updated menus: Agent, Simulation, and Physics.
+movement_sliders = [
+    {"min": 0, "max": 10, "default": simulation_config["perception_radius"], "text": "Perception Radius","key": "perception_radius"},
+    {"min": 0, "max": 10, "default": simulation_config["cohesion_radius"], "text": "Cohesion Radius", "key": "cohesion_radius"},
+    {"min": 0, "max": 10, "default": simulation_config["cohesion_weight"], "text": "Cohesion Weight", "key": "cohesion_weight"},
+    {"min": 0, "max": 10, "default": simulation_config["separation_radius"], "text": "Separation Radius", "key": "separation_radius"},
+    {"min": 0, "max": 10, "default": simulation_config["separation_weight"], "text": "Separation Weight", "key": "separation_weight"},
+    {"min": 0, "max": 10, "default": simulation_config["alignment_radius"], "text": "Alignment Radius", "key": "alignment_radius"},
+    {"min": 0, "max": 10, "default": simulation_config["alignment_weight"], "text": "Alignment Weight", "key": "alignment_weight"},
+]
 
 agent_sliders = [
-    {"min": 0, "max": 12, "default": 5.0, "text": "Max Speed", "key": "max_speed"},
-    {"min": 0, "max": 0.01, "default": 0.001, "text": "Acceleration", "key": "acceleration"},
-    {"min": 0, "max": 0.01, "default": 0.001, "text": "Deceleration", "key": "deceleration"},
-    {"min": 0, "max": 0.2, "default": 0.1, "text": "Max Lateral Acc", "key": "max_lateral_acceleration"},
-    {"min": 0, "max": 100, "default": 10.0, "text": "Momentum", "key": "momentum_weight"},
-    {"min": 0, "max": 12, "default": 0.2, "text": "Scale", "key": "agent_scale"},
-    {"min": 0, "max": 10, "default": 5, "text": "Turn Sensitivity", "key": "turn_sensitivity"},
+    {"min": 0, "max": 12, "default": simulation_config["max_speed"], "text": "Max Speed", "key": "max_speed"},
+    {"min": 0, "max": 0.01, "default": simulation_config["acceleration"], "text": "Acceleration", "key": "acceleration"},
+    {"min": 0, "max": 0.01, "default": simulation_config["deceleration"], "text": "Deceleration", "key": "deceleration"},
+    {"min": 0.01, "max": 4, "default": simulation_config["momentum_weight"], "text": "Momentum", "key": "momentum_weight"},
+    {"min": 0, "max": 10, "default": simulation_config["turn_sensitivity"], "text": "Turn Sensitivity", "key": "turn_sensitivity"},
 ]
 
 simulation_sliders = [
-    {"min": 0, "max": 12, "default": 50, "text": "Number of Agents", "key": "num_agents"},
-    {"min": 0, "max": 12, "default": 10, "text": "X Boundary", "key": "x_max"},
-    {"min": 0, "max": 12, "default": 10, "text": "Y Boundary", "key": "y_max"},
-    {"min": 0, "max": 12, "default": 10, "text": "Z Boundary", "key": "z_max"},
-
+    {"min": 0, "max": 12, "default": simulation_config["num_agents"], "text": "Number of Agents", "key": "num_agents"},
+    {"min": 0, "max": 1, "default": simulation_config["agent_scale"], "text": "Agent Size", "key": "agent_scale"},
+    {"min": 0, "max": 12, "default": simulation_config["x_max"], "text": "X Boundary", "key": "x_max"},
+    {"min": 0, "max": 12, "default": simulation_config["y_max"], "text": "Y Boundary", "key": "y_max"},
+    {"min": 0, "max": 12, "default": simulation_config["z_max"], "text": "Z Boundary", "key": "z_max"},
 ]
 
 physics_sliders = [
-    {"min": 0, "max": 10, "default": 1.0, "text": "Boundary Repulsion Multiplier", "key": "wall_repulsion_weight"},
-    {"min": 0.01, "max": 12, "default": 2.0, "text": "Boundary Threshold", "key": "boundary_threshold"},
-    {"min": 0, "max": 10, "default": 10.0, "text": "Boundary Force", "key": "boundary_max_force"},
-    {"min": 0, "max": 10, "default": 0.0, "text": "Gravity", "key": "gravity"},  # Assuming gravity isn't explicitly set
+    {"min": 0.00, "max": 10, "default": simulation_config["wall_repulsion_weight"], "text": "Boundary Repulsion Multiplier", "key": "wall_repulsion_weight"},
+    {"min": 0.01, "max": 12, "default": simulation_config["boundary_threshold"], "text": "Boundary Threshold", "key": "boundary_threshold"},
+    {"min": 0.00, "max": 10, "default": simulation_config["boundary_max_force"], "text": "Boundary Force", "key": "boundary_max_force"},
 ]
-
 
 
 def create_settings_ui():
@@ -46,14 +52,16 @@ def create_settings_ui():
     physics_ui = Entity(parent=camera.ui, enabled=False)
     simulation_ui = Entity(parent=camera.ui, enabled=False)
     agents_ui = Entity(parent=camera.ui, enabled=False)
+    movement_ui = Entity(parent=camera.ui, enabled=False)
 
     # List of all settings containers for easy toggling.
-    settings_containers = [physics_ui, simulation_ui, agents_ui]
+    settings_containers = [physics_ui, simulation_ui, agents_ui, movement_ui]
 
     # Create the UI elements for each category.
     create_sliders(physics_ui, physics_sliders)
     create_sliders(simulation_ui, simulation_sliders)
     create_sliders(agents_ui, agent_sliders)
+    create_sliders(movement_ui, movement_sliders)
 
     # Return the containers and background dimmer for external access.
     return {
@@ -61,6 +69,7 @@ def create_settings_ui():
         'physics_ui': physics_ui,
         'simulation_ui': simulation_ui,
         'agents_ui': agents_ui,
+        'movement_ui': movement_ui,
         'settings_containers': settings_containers
     }
 

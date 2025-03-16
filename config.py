@@ -12,13 +12,12 @@ def update_config(key, slider):
 simulation_config = {
     # Core Physics Variables
     "perception_radius": 3.0,
-    "min_speed": 0.1,
+    "min_speed": 0.1, # Hidden
     "max_speed": 2.0,
     "acceleration": 0.001,
     "deceleration": 0.001,
-    "max_lateral_acceleration": 0.1,
-    "momentum_weight": 10.0,
-    "direction_alpha": 0.1,
+    "momentum_weight": 1.0,
+    "direction_alpha": 0.1, # Hidden
     "turn_sensitivity": 5,
 
     # Cohesion, Alignment, Separation
@@ -33,13 +32,12 @@ simulation_config = {
     "movement_model": "Boids",              # The movement model
     "camera_position": (25, 20, -70),       # Camera position
     "camera_look_at": (0, 0, 0),            # Where the camera looks
-    "frame_duration": 1/60,                 # Duration of the frame per second
+    "frame_duration": 1/60,                 # Duration of the frame per second # TO BE INVESTIGATED - Higher rate seems to make smoother movement?
     "num_agents": 50,                       # Number of agents
     "init_position_bounds": (-10, 10),      # Initial spawned position range for agents
     "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
     "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents
     "agent_scale": 0.2,                     # Scale of the agent entity in Ursina
-    "gravity": -1,
 
     # Simulation Boundaries
     "x_max": 10,

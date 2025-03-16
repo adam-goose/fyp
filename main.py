@@ -17,7 +17,7 @@ agents = spawn_agents()
 # DEBUGGING - MAKES THE FIRST AGENT RED, SECOND GREEN, AND THIRD YELLOW
 agent_entities = [
     Entity(
-        model="sphere",
+        model="cube",
         color=(
             color.red if i == 0
             else color.green if i == 1
@@ -74,6 +74,7 @@ background_dimmer = ui_elements['background_dimmer']
 physics_ui = ui_elements['physics_ui']
 simulation_ui = ui_elements['simulation_ui']
 agents_ui = ui_elements['agents_ui']
+movement_ui = ui_elements['movement_ui']
 settings_containers = ui_elements['settings_containers']
 
 # Create buttons to toggle each settings UI.
@@ -88,6 +89,10 @@ simulation_button.on_click = lambda: toggle_settings(simulation_ui, background_d
 agent_button = Button(text="Agent", parent=camera.ui,
                       position=(-0.7, 0.2), scale=(0.2, 0.05))
 agent_button.on_click = lambda: toggle_settings(agents_ui, background_dimmer, settings_containers)
+
+movement_button = Button(text="Movement", parent=camera.ui,
+                      position=(-0.7, 0.1), scale=(0.2, 0.05))
+movement_button.on_click = lambda: toggle_settings(movement_ui, background_dimmer, settings_containers)
 
 # Run the Ursina app
 app.run()

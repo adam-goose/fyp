@@ -200,10 +200,10 @@ class Boids(MovementModel):
     def update_position(self, current_agent, all_agents):
         self.adjust_speed(current_agent)
 
-        velocity = current_agent.direction * current_agent.speed * simulation_config["momentum_weight"]
+        velocity = current_agent.direction * current_agent.speed
 
         # Update position using the new direction, current speed, and time step
-        current_agent.position += velocity * 0.01
+        current_agent.position += velocity * 0.1
 
 
     def adjust_speed(self, current_agent):
@@ -214,11 +214,11 @@ class Boids(MovementModel):
         # If target speed is lower than current speed, decelerate smoothly
         if target_speed < current_agent.speed:
             speed_change = (current_agent.speed - target_speed) * (1 - np.exp(-simulation_config["deceleration"]))
-            current_agent.speed -= speed_change
+            current_agent.speed -= speed_change / (1 / simulation_config["momentum_weight"])
         else:
             # Normal acceleration logic
             speed_change = (target_speed - current_agent.speed) * (1 - np.exp(-simulation_config["acceleration"]))
-            current_agent.speed += speed_change
+            current_agent.speed += speed_change / (1 / simulation_config["momentum_weight"])
 
         # Clamp speed between min and max
         current_agent.speed = max(current_agent.min_speed, min(simulation_config["max_speed"], current_agent.speed))
@@ -249,9 +249,8 @@ class Boids(MovementModel):
         current_direction = current_agent.direction / np.linalg.norm(current_agent.direction)
         combined_vector = self.calc_direction(current_agent)
 
-        new_direction = (1 - simulation_config["direction_alpha"]) * current_direction + simulation_config[
-            "direction_alpha"] * combined_vector
-
+        adjusted_alpha = simulation_config["direction_alpha"] / simulation_config["momentum_weight"]
+        new_direction = (1 - adjusted_alpha) * current_direction + adjusted_alpha * combined_vector
 
         # Normalize again to maintain unit vector
         new_direction = new_direction / np.linalg.norm(new_direction)
