@@ -14,6 +14,7 @@ def set_camera():
     """
     camera.position = simulation_config["camera_position"]  # Position of the camera within the scene
     camera.look_at(simulation_config["camera_look_at"])  # Direction the camera looks at
+    camera.rotation_z = 0  # Force no roll
 
 
 def create_boundary():
@@ -61,21 +62,41 @@ def spawn_agents():
     Returns: List of agents with set position and direction.
     """
     print(f"SPAWNING AGENTS ------")
-    return [
-        Agent(
+
+    color_mode = simulation_config["agent_colour_mode"]
+    color_choices = [
+        color.white, color.black,
+        color.red, color.green, color.blue,
+        color.yellow, color.orange, color.pink,
+        color.magenta, color.cyan, color.azure,
+        color.lime, color.violet, color.brown,
+        color.gray
+    ]
+
+    agents = []
+
+    for _ in range(simulation_config["num_agents"]):
+        agent = Agent(
             position=[
-                random.uniform(*simulation_config["init_position_bounds"]), # Random x position within config bounds
-                random.uniform(*simulation_config["init_position_bounds"]), # Random y position within config bounds
-                random.uniform(*simulation_config["init_position_bounds"])  # Random z position within config bounds
+                random.uniform(*simulation_config["init_position_bounds"]),
+                random.uniform(*simulation_config["init_position_bounds"]),
+                random.uniform(*simulation_config["init_position_bounds"])
             ],
             direction=[
-                random.uniform(*simulation_config["init_direction_bounds"]), # Random x direction within config bounds
-                random.uniform(*simulation_config["init_direction_bounds"]), # Random y direction within config bounds
-                random.uniform(*simulation_config["init_direction_bounds"])  # Random z direction within config bounds
+                random.uniform(*simulation_config["init_direction_bounds"]),
+                random.uniform(*simulation_config["init_direction_bounds"]),
+                random.uniform(*simulation_config["init_direction_bounds"])
             ]
         )
-        # Repeat for as many agents as specified by configuration
-        for _ in range(simulation_config["num_agents"])
 
-    ]
+        # Assign color
+        if color_mode == "multi":
+            agent.color = random.choice(color_choices)
+        else:
+            agent.color = getattr(color, color_mode, color.white)
+
+        agents.append(agent)
+
+    return agents
+
 
