@@ -13,6 +13,7 @@ last_time = time.time()
 
 # Initialize agents
 agents = spawn_agents()
+refresh_obstacle()
 
 auto_rotate_enabled = False
 orbit_angle = 0
@@ -44,7 +45,6 @@ def update():
     current_time = time.time()
     elapsed_time = current_time - last_time
 
-
     if auto_rotate_enabled:
         orbit_angle += simulation_config["camera_orbit_speed"] * time.dt
 
@@ -58,6 +58,7 @@ def update():
 
     camera.look_at(simulation_config["camera_look_at"])
     camera.rotation_z = 0  # Force no roll
+
 
     if elapsed_time < frame_duration:
         time.sleep(frame_duration - elapsed_time)  # Sleep to maintain 30 FPS
@@ -116,6 +117,7 @@ def reset_simulation():
 
     # Destroy the current boundary
     destroy(boundary)
+    refresh_obstacle()
 
     color_mode = simulation_config["agent_colour_mode"]
 
@@ -174,6 +176,7 @@ agents_ui = ui_elements['agents_ui']
 movement_ui = ui_elements['movement_ui']
 settings_containers = ui_elements['settings_containers']
 camera_ui = ui_elements['camera_ui']
+obstacle_ui = ui_elements['obstacle_ui']
 
 # Create buttons to toggle each settings UI.
 physics_button = Button(text="Physics", parent=camera.ui,
@@ -196,12 +199,16 @@ camera_button = Button(text="Camera", parent=camera.ui,
                        position=(-0.7, -0.0), scale=(0.2, 0.05))
 camera_button.on_click = lambda: toggle_settings(camera_ui, background_dimmer, settings_containers)
 
+obstacle_button = Button(text="Obstacle", parent=camera.ui,
+                       position=(-0.7, -0.1), scale=(0.2, 0.05))
+obstacle_button.on_click = lambda: toggle_settings(obstacle_ui, background_dimmer, settings_containers)
+
 reset_button = Button(text="Reset Sim", parent=camera.ui,
-                      position=(-0.7, -0.1, -0.5), scale=(0.2, 0.05), color=color.azure)
+                      position=(-0.7, -0.2, -0.5), scale=(0.2, 0.05), color=color.azure)
 reset_button.on_click = reset_simulation
 
 reset_default_button = Button(text="Reset Default", parent=camera.ui,
-                              position=(-0.7, -0.2, -0.5), scale=(0.2, 0.05), color=color.orange)
+                              position=(-0.7, -0.3, -0.5), scale=(0.2, 0.05), color=color.orange)
 reset_default_button.on_click = reset_simulation_to_default
 
 orbit_toggle = Button(text="Auto Orbit: Off", parent=camera_ui,

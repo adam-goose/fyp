@@ -2,6 +2,7 @@
 from ursina import *
 from config import update_config
 from config import *
+from simulation import refresh_obstacle
 
 # Define Slider data for each category with updated menus: Agent, Simulation, and Physics.
 movement_sliders = [
@@ -25,9 +26,9 @@ agent_sliders = [
 simulation_sliders = [
     {"min": 0, "max": 100, "default": simulation_config["num_agents"], "text": "Number of Agents", "key": "num_agents"},
     {"min": 0.1, "max": 2, "default": simulation_config["agent_scale"], "text": "Agent Size", "key": "agent_scale"},
-    {"min": 0, "max": 12, "default": simulation_config["x_max"], "text": "X Boundary", "key": "x_max"},
-    {"min": 0, "max": 12, "default": simulation_config["y_max"], "text": "Y Boundary", "key": "y_max"},
-    {"min": 0, "max": 12, "default": simulation_config["z_max"], "text": "Z Boundary", "key": "z_max"},
+    {"min": 0, "max": 15, "default": simulation_config["x_max"], "text": "X Boundary", "key": "x_max"},
+    {"min": 0, "max": 15, "default": simulation_config["y_max"], "text": "Y Boundary", "key": "y_max"},
+    {"min": 0, "max": 15, "default": simulation_config["z_max"], "text": "Z Boundary", "key": "z_max"},
 ]
 
 physics_sliders = [
@@ -43,9 +44,28 @@ camera_sliders = [
     {"min": 0, "max": 2, "default": simulation_config["camera_orbit_speed"], "text": "Orbit Speed", "key": "camera_orbit_speed"},
 ]
 
+obstacle_sliders = [
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_min"][0], "text": "Obstacle Min X", "key": "obstacle_corner_min[0]"},
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_min"][1], "text": "Obstacle Min Y", "key": "obstacle_corner_min[1]"},
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_min"][2], "text": "Obstacle Min Z", "key": "obstacle_corner_min[2]"},
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_max"][0], "text": "Obstacle Max X", "key": "obstacle_corner_max[0]"},
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_max"][1], "text": "Obstacle Max Y", "key": "obstacle_corner_max[1]"},
+    {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_max"][2], "text": "Obstacle Max Z", "key": "obstacle_corner_max[2]"},
+]
+
 def update_agent_color(color_name):
     simulation_config['agent_colour_mode'] = color_name
-    print(f"Agent color set to: {color_name}")
+    print(f"Agent colour set to: {color_name}")
+
+def update_obstacle_color(color):
+    simulation_config['obstacle_colour'] = color
+    refresh_obstacle()
+    print(f"Obstacle colour set to: {color}")
+
+def toggle_obstacle():
+    simulation_config['obstacle_enabled'] = not simulation_config['obstacle_enabled']
+    refresh_obstacle()
+    print(f"Obstacle enabled: {simulation_config['obstacle_enabled']}")
 
 def create_settings_ui():
     """Create all settings UI elements and return the containers."""
@@ -64,9 +84,10 @@ def create_settings_ui():
     agents_ui = Entity(parent=camera.ui, enabled=False)
     movement_ui = Entity(parent=camera.ui, enabled=False)
     camera_ui = Entity(parent=camera.ui, enabled=False)
+    obstacle_ui = Entity(parent=camera.ui, enabled=False)
 
     # List of all settings containers for easy toggling.
-    settings_containers = [physics_ui, simulation_ui, agents_ui, movement_ui, camera_ui]
+    settings_containers = [physics_ui, simulation_ui, agents_ui, movement_ui, camera_ui, obstacle_ui]
 
     # Create the UI elements for each category.
     create_sliders(physics_ui, physics_sliders)
@@ -85,6 +106,24 @@ def create_settings_ui():
 
     create_sliders(movement_ui, movement_sliders)
     create_sliders(camera_ui, camera_sliders)
+    create_sliders(obstacle_ui, obstacle_sliders)
+    for i, color_name in enumerate(colors[1:]):
+        Button(
+            text=color_name,
+            color=getattr(color, color_name, color.gray),
+            scale=(0.1, 0.05),
+            position=(i * 0.12 - 0.35, -0.20),  # centered layout
+            parent=obstacle_ui,
+            on_click=lambda c=getattr(color, color_name): update_obstacle_color(c)
+        )
+        obstacle_toggle = Button(
+            text="Toggle Obstacle",
+            color=color.blue,
+            parent=obstacle_ui,
+            position=(-0.2, -0.3),
+            scale=(0.4, 0.05))
+        obstacle_toggle.on_click = lambda: toggle_obstacle()
+
 
     # Return the containers and background dimmer for external access.
     return {
@@ -95,6 +134,7 @@ def create_settings_ui():
         'movement_ui': movement_ui,
         'settings_containers': settings_containers,
         'camera_ui': camera_ui,
+        'obstacle_ui': obstacle_ui
     }
 
 def create_sliders(container, slider_data):
@@ -116,12 +156,10 @@ def create_sliders(container, slider_data):
 
         slider.children[0].z = -1  # Lowering the z value draws it on top.
 
-        if data['key'] in ['camera_position[0]', 'camera_position[1]', 'camera_position[2]']:
-            # Live update for camera sliders
-            slider.update = lambda s=slider, k=data['key']: update_config(k, s)
-        else:
-            # Default on release for other sliders
-            slider.on_value_changed = lambda s=slider, k=data['key']: update_config(k, s)
+        key = data['key']
+
+        if key in ['camera_position[0]', 'camera_position[1]', 'camera_position[2]']:
+            slider.update = lambda s=slider, k=key: update_config(k, s)
 
         if 'key' in data:
             if data['key'] == "num_agents":
@@ -132,10 +170,10 @@ def create_sliders(container, slider_data):
                 slider.on_value_changed = snap_to_int
 
             else:
-                slider.on_value_changed = lambda s=slider, k=data['key']: update_config(k, s)
-
-        else:
-            slider.on_value_changed = lambda s=slider, k=data['key']: update_config(k, s)
+                slider.on_value_changed = lambda s=slider, k=data['key']: (
+                    update_config(k, s),
+                    refresh_obstacle()
+                )
 
 def update_background_dimmer(background_dimmer, settings_containers):
     """Update the background dimmer based on whether any settings container is active."""

@@ -6,6 +6,8 @@ from config import simulation_config
 # Frame timing setup
 frame_duration = simulation_config["frame_duration"]
 
+obstacle_entity = None
+
 # Define camera position and direction
 def set_camera():
     """
@@ -54,6 +56,28 @@ def create_boundary():
         color=color.white # Set the wireframe colour to white
     )
 
+def refresh_obstacle():
+    global obstacle_entity
+
+    if obstacle_entity:
+        destroy(obstacle_entity)
+
+    if not simulation_config['obstacle_enabled']:
+        return
+
+    min_corner = Vec3(*simulation_config['obstacle_corner_min'])
+    max_corner = Vec3(*simulation_config['obstacle_corner_max'])
+
+    center = (min_corner + max_corner) * 0.5
+    size = max_corner - min_corner
+
+    obstacle_entity = Entity(
+        model='cube',
+        color=simulation_config['obstacle_colour'],
+        position=center,
+        scale=size,
+        collider='box'
+    )
 
 def spawn_agents():
     """

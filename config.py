@@ -1,5 +1,5 @@
 from copy import deepcopy
-
+from ursina import color
 def get_movement_model_by_name(name):
     if name == "Boids":
         from movement_model import Boids
@@ -72,7 +72,13 @@ simulation_config = {
     "z_min": -10,
     "wall_repulsion_weight": 1.0,
     "boundary_threshold": 2.0,
-    "boundary_max_force": 10.0
+    "boundary_max_force": 10.0,
+
+    # Obstacle Settings
+    "obstacle_enabled": False,
+    "obstacle_corner_min": [-10, 0, -10],
+    "obstacle_corner_max": [10, 1, 10],
+    "obstacle_colour": color.white,
 }
 
 default_simulation_config = deepcopy(simulation_config)

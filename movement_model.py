@@ -273,12 +273,16 @@ class Boids(MovementModel):
         # Calculate wall repulsion force
         wall_repulsion_vector = WallPhysics.calc_wall_repulsion(current_agent)  # Repulsion force from walls
 
+        # Calculate obstacle repulsion force
+        obstacle_repulsion_vector = ObstaclePhysics.calculate_obstacle_repulsion(current_agent.position,simulation_config["boundary_threshold"],simulation_config["boundary_max_force"])
+
         # Combine vectors with respective weights from simulation configuration
         combined_vector = (
                 simulation_config["cohesion_weight"] * cohesion_vector +
                 simulation_config["alignment_weight"] * alignment_vector +
                 simulation_config["separation_weight"] * separation_vector +
-                simulation_config["wall_repulsion_weight"] * wall_repulsion_vector
+                simulation_config["wall_repulsion_weight"] * wall_repulsion_vector +
+                obstacle_repulsion_vector
         )
 
         # Check if the combined vector is zero or near-zero
@@ -290,5 +294,4 @@ class Boids(MovementModel):
         combined_vector = combined_vector / np.linalg.norm(combined_vector)
 
         return combined_vector
-
 

@@ -70,3 +70,45 @@ class WallPhysics:
         ])
 
         return repulsion_force  # Returns the repulsion force vector
+
+
+class ObstaclePhysics:
+
+    @staticmethod
+    def calculate_obstacle_repulsion(agent_position, threshold, max_force):
+        if not simulation_config.get("obstacle_enabled", False):
+            return np.array([0.0, 0.0, 0.0])
+
+        obstacle_min = np.array(simulation_config["obstacle_corner_min"], dtype=float)
+        obstacle_max = np.array(simulation_config["obstacle_corner_max"], dtype=float)
+
+        # Compute the minimum and maximum corners correctly
+        min_corner = np.minimum(obstacle_min, obstacle_max)
+        max_corner = np.maximum(obstacle_min, obstacle_max)
+
+        agent_position = np.array(agent_position)
+
+        # Inflate obstacle boundaries by threshold to create repulsion zone
+        expanded_min = min_corner - threshold
+        expanded_max = max_corner + threshold
+
+        # If outside the repulsion zone, no force
+        if np.any(agent_position < expanded_min) or np.any(agent_position > expanded_max):
+            return np.array([0.0, 0.0, 0.0])
+
+        # Clamp to find closest point on obstacle
+        closest_point = np.maximum(min_corner, np.minimum(agent_position, max_corner))
+        vector_to_agent = agent_position - closest_point
+        distance = np.linalg.norm(vector_to_agent)
+
+        if distance == 0:
+            # Agent is inside the obstacle
+            center = (min_corner + max_corner) / 2
+            direction = agent_position - center
+            if np.linalg.norm(direction) == 0:
+                direction = np.random.uniform(-1, 1, 3)
+            return max_force * direction / np.linalg.norm(direction)
+
+        # Within threshold around the obstacle
+        force_magnitude = max_force * (threshold - distance) / threshold
+        return force_magnitude * (vector_to_agent / distance)
