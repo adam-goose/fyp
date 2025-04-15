@@ -40,28 +40,6 @@ class Boids(MovementModel):
         return Boids.positions[:n], Boids.directions[:n], Boids.deltas[:n], Boids.distances[:n]
 
     @staticmethod
-    def batch_update_positions(all_agents):
-        n = len(all_agents)
-
-        # Resize buffers if needed
-        if n > Boids.buffer_size:
-            Boids.resize_buffers(n)
-
-        # Fill positions, directions, and speeds
-        for i, agent in enumerate(all_agents):
-            Boids.positions[i] = agent.position
-            Boids.directions[i] = agent.direction
-            Boids.speeds[i] = agent.speed
-
-        # Compute new positions in batch
-        velocities = Boids.directions[:n] * Boids.speeds[:n, None]
-        Boids.positions[:n] += velocities * 0.1  # assuming timestep is 0.1 like before
-
-        # Write updated positions back to agents
-        for i, agent in enumerate(all_agents):
-            agent.position = Boids.positions[i]
-
-    @staticmethod
     def resize_buffers(new_size):
         Boids.buffer_size = new_size
         Boids.positions = np.zeros((new_size, 3))

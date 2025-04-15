@@ -40,19 +40,14 @@ current_agent_count = agent_stages[0][0]  # start with 20
 # Create an Ursina Entity for each agent and store in a list
 # DEBUGGING - MAKES THE FIRST AGENT RED, SECOND GREEN, AND THIRD YELLOW
 agent_entities = [
-    Entity(
-        model="cube",
-        color=(
-            color.red if i == 0
-            else color.green if i == 1
-            else color.yellow if i == 2
-            else color.blue
-        ),
-        scale=simulation_config["agent_scale"],
-        position=agent.position
-    )
-    for i, agent in enumerate(agents)
-]
+        Entity(
+            model="cube",
+            color=agent.color,  # ← use the color set in spawn_agents
+            scale=simulation_config["agent_scale"],
+            position=agent.position
+        )
+        for agent in agents
+    ]
 
 boundary = simulation.create_boundary()
 simulation.set_camera()
