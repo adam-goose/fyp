@@ -52,14 +52,7 @@ class Agent:
 
     def update_position(self):
         """
-        Update the agent's position based on its calculated movement vector and speed.
-
-        This method calculates the agent's new direction using `calc_movement()`,
-        then updates its position by applying the direction, speed, and a time step
-        (`delta_time` from the simulation configuration).
-
-        Returns:
-            None: The agent's position is updated in place.
+        may no longer be relevant
         """
 
         get_movement_model_by_name(simulation_config["movement_model"]).update_position(self, self.all_agents)

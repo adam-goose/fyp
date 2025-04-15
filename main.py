@@ -3,7 +3,14 @@ from simulation import *
 from config import *
 from ursina import *
 from settings_ui import *
-from config import default_simulation_config
+from config import default_simulation_config, simulation_config
+import time
+import psutil
+from collections import deque
+import csv
+import atexit
+import numpy as np
+import datetime
 
 
 # Initialise the Ursina app
@@ -17,6 +24,17 @@ refresh_obstacle()
 
 auto_rotate_enabled = False
 orbit_angle = 0
+
+# 🔁 Frame tracking + logging
+frame_data_log = []
+frame_counter = 0
+last_frame_time = None
+
+# 🎯 Agent stage management
+agent_stages = [(10, 300), (20, 300), (30, 300), (40, 300), (50, 300), (60, 300), (70, 300), (80, 300)]
+stage_index = 0
+stage_frame_counter = 0
+current_agent_count = agent_stages[0][0]  # start with 20
 
 
 # Create an Ursina Entity for each agent and store in a list
@@ -38,6 +56,58 @@ agent_entities = [
 
 boundary = simulation.create_boundary()
 simulation.set_camera()
+
+def log_performance(current_agents):
+    global frame_counter, last_frame_time, frame_data_log, agent_stages, stage_index, stage_frame_counter, current_agent_count
+
+    now = time.perf_counter()
+    frame_time = 0.0
+    if last_frame_time is not None:
+        frame_time = (now - last_frame_time) * 1000  # ms
+    last_frame_time = now
+
+    cpu = psutil.cpu_percent(interval=None)
+    systime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # millisecond precision
+
+    num_agents = simulation_config["num_agents"]
+
+
+    frame_data_log.append([
+        systime,
+        frame_counter,                # 0 - global frame count
+        stage_index,                  # 1 - current stage
+        frame_time,                   # 2 - frame time
+        cpu,                          # 3 - CPU usage
+        num_agents                   # 4 - number of agents
+    ])
+
+    frame_counter += 1
+    stage_frame_counter += 1
+
+    # Move to the next stage after 300 frames
+    if stage_frame_counter >= agent_stages[stage_index][1]:
+        stage_index += 1
+        stage_frame_counter = 0
+
+        if stage_index < len(agent_stages):
+            next_agent_count = agent_stages[stage_index][0]
+            simulation_config["num_agents"] = next_agent_count
+            reset_simulation()
+            print(f"\n>>> Switching to {next_agent_count} agents (Stage {stage_index})\n")
+        else:
+            print(">>> All stages complete.")
+
+def save_full_log(filename="full_performance_log.csv"):
+    with open(filename, "w", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "Time", "Frame", "Stage", "Frame Time (ms)", "CPU Usage (%)",
+            "Agent Count"
+        ])
+        writer.writerows(frame_data_log)
+
+
+#atexit.register(save_full_log)
 
 def update():
     global last_time
@@ -79,6 +149,8 @@ def update():
         agent_entity.position = agent.position  # Sync visual position with logic
 
     last_time = time.time()
+    #log_performance(Agent.all_agents)
+
 
 def toggle_auto_rotate():
     global auto_rotate_enabled, orbit_angle, orbit_radius, orbit_height

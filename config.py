@@ -56,7 +56,7 @@ simulation_config = {
     "camera_look_at": [0, 0, 0],            # Where the camera looks
     "camera_orbit_speed": 1,
     "frame_duration": 1/60,                 # Duration of the frame per second # TO BE INVESTIGATED - Higher rate seems to make smoother movement?
-    "num_agents": 4,                       # Number of agents
+    "num_agents": 10,                       # Number of agents
     "init_position_bounds": (-10, 10),      # Initial spawned position range for agents
     "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
     "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents
