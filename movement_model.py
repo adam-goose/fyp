@@ -15,7 +15,7 @@ class MovementModel:
 
 class Boids(MovementModel):
     # Class attributes
-    buffer_size = 200
+    buffer_size = 100
     positions = np.zeros((buffer_size, 3))
     directions = np.zeros((buffer_size, 3))
     deltas = np.zeros((buffer_size, 3))

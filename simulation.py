@@ -79,6 +79,17 @@ def refresh_obstacle():
         collider='box'
     )
 
+boundary = create_boundary()
+def reset_boundaries():
+    global boundary
+
+    # Destroy current boundary
+    if boundary:
+        destroy(boundary)
+
+    # Recreate boundary using current config
+    boundary = create_boundary()
+
 def spawn_agents():
     """
     Spawn agents according to values set by simulation_config.
@@ -86,6 +97,7 @@ def spawn_agents():
     Returns: List of agents with set position and direction.
     """
     print(f"SPAWNING AGENTS ------")
+    Agent.all_agents.clear()
 
     color_mode = simulation_config["agent_colour_mode"]
     color_choices = [

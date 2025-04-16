@@ -11,12 +11,22 @@ import csv
 import atexit
 import numpy as np
 import datetime
+from movement_model import Boids
+from record_playback import SimulationRecorder, SimulationPlayback
+import tkinter as tk
+from tkinter import filedialog
 
+# Hide the main Tkinter window
+tk_root = tk.Tk()
+tk_root.withdraw()
 
 # Initialise the Ursina app
 app = Ursina()
 
 last_time = time.time()
+
+recorder = SimulationRecorder()
+playback = SimulationPlayback()
 
 # Initialize agents
 agents = spawn_agents()
@@ -24,6 +34,8 @@ refresh_obstacle()
 
 auto_rotate_enabled = False
 orbit_angle = 0
+
+current_count = 0
 
 # 🔁 Frame tracking + logging
 frame_data_log = []
@@ -49,7 +61,6 @@ agent_entities = [
         for agent in agents
     ]
 
-boundary = simulation.create_boundary()
 simulation.set_camera()
 
 def log_performance(current_agents):
@@ -106,7 +117,7 @@ def save_full_log(filename="full_performance_log.csv"):
 
 def update():
     global last_time
-    global orbit_angle
+    global orbit_angle, current_count, agents
     current_time = time.time()
     elapsed_time = current_time - last_time
 
@@ -137,14 +148,73 @@ def update():
         #second_agent_speed_readout.text = f"Second Agent Speed: {agents[1].speed:.2f}"
         #third_agent_speed_readout.text = f"Third Agent Speed: {agents[2].speed:.2f}"
 
-    # Update simulation logic and render positions
-    for agent, agent_entity in zip(agents, agent_entities):
-        agent.update_position()  # Update agent logic
+    if recorder.is_recording():
+        packed_boundaries = pack_boundaries(simulation_config)
+        recorder.record_frame(Boids.positions, Boids.directions, simulation_config["num_agents"], packed_boundaries,
+                              simulation_config["obstacle_corner_min"], simulation_config["obstacle_corner_max"],
+                              simulation_config["obstacle_enabled"])
 
-        agent_entity.position = agent.position  # Sync visual position with logic
+    if not playback.is_playing():
+        # Normal simulation logic
+        for agent, agent_entity in zip(agents, agent_entities):
+            agent.update_position()
+            agent_entity.position = agent.position
+    else:
+        # Playback logic
+        frame = playback.update()
+        if frame:
+            pos_frame = frame['positions']
+            dir_frame = frame['directions']
+
+            if frame['reset'] or playback.current_frame == 1:
+                current_count = frame['num_agents']
+                simulation_config["num_agents"] = current_count
+                reset_simulation()
+                print(f"Frame: {playback.current_frame}")
+                print(f"TRUE")
+
+            # Update config and environment visuals
+            simulation_config["obstacle_enabled"] = frame['obstacle_toggle']
+            simulation_config["obstacle_corner_min"] = frame['obstacle_corner_min']
+            simulation_config["obstacle_corner_max"] = frame['obstacle_corner_max']
+            unpack_boundaries(frame['boundary_size'], simulation_config)
+            refresh_obstacle()
+            reset_boundaries()
+
+            # Update agent visuals
+            for i in range(current_count):
+                print(f"AG Frame: {playback.current_frame}")
+                agents[i].position = pos_frame[i]
+                agents[i].direction = dir_frame[i]
+                agent_entities[i].position = pos_frame[i]
 
     last_time = time.time()
     #log_performance(Agent.all_agents)
+
+def pack_boundaries(config):
+    """
+    Converts boundary dictionary into a 1D NumPy array:
+    [x_min, x_max, y_min, y_max, z_min, z_max]
+    """
+    return np.array([
+        config["x_min"],
+        config["x_max"],
+        config["y_min"],
+        config["y_max"],
+        config["z_min"],
+        config["z_max"]
+    ], dtype=np.float32)
+
+def unpack_boundaries(boundary_array, config):
+    """
+    Applies a boundary array back into the simulation_config dict.
+    """
+    config["x_min"] = boundary_array[0]
+    config["x_max"] = boundary_array[1]
+    config["y_min"] = boundary_array[2]
+    config["y_max"] = boundary_array[3]
+    config["z_min"] = boundary_array[4]
+    config["z_max"] = boundary_array[5]
 
 
 def toggle_auto_rotate():
@@ -164,16 +234,6 @@ def toggle_auto_rotate():
             orbit_radius = 10  # fallback if they're dead center
 
 
-def reset_boundaries():
-    global boundary
-
-    # Destroy current boundary
-    if boundary:
-        destroy(boundary)
-
-    # Recreate boundary using current config
-    boundary = simulation.create_boundary()
-
 
 def reset_simulation():
     global agents, agent_entities, boundary
@@ -181,6 +241,11 @@ def reset_simulation():
     # Destroy current agent entities
     for ent in agent_entities:
         destroy(ent)
+
+    if recorder.is_recording():
+        recorder.last_reset_frame_index = len(recorder.frames)
+        print(f"Last recorded frame index: {recorder.last_reset_frame_index}")
+        print(f"Total frames recorded: {len(recorder.frames)}")
 
     # Destroy the current boundary
     destroy(boundary)
@@ -223,6 +288,28 @@ def reset_simulation_to_default():
 
     # Reset sim with the fresh config
     reset_simulation()
+
+def toggle_recording():
+    if not recorder.is_recording():
+        recorder.start()
+        record_toggle.text = 'Stop & Save'
+    else:
+        recorder.stop_and_save()
+        record_toggle.text = 'Start Recording'
+
+def toggle_playback():
+    if not playback.is_playing():
+        filepath = filedialog.askopenfilename(
+            title="Select a recording file",
+            filetypes=[("NumPy compressed", "*.npz")]
+        )
+        if filepath:
+            playback.load(filepath)
+            playback.start()
+            playback_toggle.text = 'Stop Playback'
+    else:
+        playback.stop()
+        playback_toggle.text = 'Play Recording'
 
 # Window
 window.size = (1280, 720)
@@ -291,7 +378,23 @@ reset_bounds_button = Button(
 )
 reset_bounds_button.on_click = reset_boundaries
 
+record_toggle = Button(
+    text='Start Recording',
+    parent=camera.ui,
+    position=(-0.7, -0.4, -0.5),  # one step below Reset Default
+    scale=(0.2, 0.05),
+    color=color.red
+)
+record_toggle.on_click = toggle_recording
 
+playback_toggle = Button(
+    text='Play Recording',
+    parent=camera.ui,
+    position=(-0.7, -0.5, -0.5),  # below record toggle
+    scale=(0.2, 0.05),
+    color=color.green
+)
+playback_toggle.on_click = toggle_playback
 
 # Run the Ursina app
 app.run()

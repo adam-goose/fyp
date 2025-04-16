@@ -2,7 +2,7 @@
 from ursina import *
 from config import update_config
 from config import *
-from simulation import refresh_obstacle
+from simulation import refresh_obstacle, reset_boundaries
 
 # Define Slider data for each category with updated menus: Agent, Simulation, and Physics.
 movement_sliders = [
@@ -172,7 +172,8 @@ def create_sliders(container, slider_data):
             else:
                 slider.on_value_changed = lambda s=slider, k=data['key']: (
                     update_config(k, s),
-                    refresh_obstacle()
+                    refresh_obstacle(),
+                    reset_boundaries()
                 )
 
 def update_background_dimmer(background_dimmer, settings_containers):
