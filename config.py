@@ -1,5 +1,7 @@
 from copy import deepcopy
 from ursina import color
+import numpy as np
+
 def get_movement_model_by_name(name):
     if name == "Boids":
         from movement_model import Boids
@@ -30,6 +32,30 @@ def update_config(key, slider):
 
     simulation_config[key] = val
 
+def pack_boundaries(config):
+    """
+    Converts boundary dictionary into a 1D NumPy array:
+    [x_min, x_max, y_min, y_max, z_min, z_max]
+    """
+    return np.array([
+        config["x_min"],
+        config["x_max"],
+        config["y_min"],
+        config["y_max"],
+        config["z_min"],
+        config["z_max"]
+    ], dtype=np.float32)
+
+def unpack_boundaries(boundary_array, config):
+    """
+    Applies a boundary array back into the simulation_config dict.
+    """
+    config["x_min"] = boundary_array[0]
+    config["x_max"] = boundary_array[1]
+    config["y_min"] = boundary_array[2]
+    config["y_max"] = boundary_array[3]
+    config["z_min"] = boundary_array[4]
+    config["z_max"] = boundary_array[5]
 
 simulation_config = {
     # Core Physics Variables
@@ -60,7 +86,7 @@ simulation_config = {
     "init_position_bounds": (-10, 10),      # Initial spawned position range for agents
     "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
     "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents
-    "agent_scale": 0.2,                     # Scale of the agent entity in Ursina
+    "agent_scale": 2,                     # Scale of the agent entity in Ursina
     "agent_colour_mode": "multi",
 
     # Simulation Boundaries

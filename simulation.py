@@ -7,6 +7,15 @@ from config import simulation_config
 frame_duration = simulation_config["frame_duration"]
 
 obstacle_entity = None
+agent_entities = []
+color_choices = [
+        color.white, color.black,
+        color.red, color.green, color.blue,
+        color.yellow, color.orange, color.pink,
+        color.magenta, color.cyan, color.azure,
+        color.lime, color.violet, color.brown,
+        color.gray
+    ]
 
 # Define camera position and direction
 def set_camera():
@@ -38,22 +47,19 @@ def create_boundary():
         Vec3(simulation_config["x_min"], simulation_config["y_max"], simulation_config["z_max"])    # Top-back-right
     ]
 
-    triangles = [
-        # This is super confusing and I don't know how I got it to look right
-        (0, 1, 2), (0, 2, 3),  # Bottom face
-        (4, 5, 6), (4, 6, 7),  # Top face
-        (0, 1, 5), (0, 5, 4),  # Front face
-        (3, 1, 4),             # Front face diagonal
-        (1, 2, 6), (1, 6, 5),  # Right face
-        (2, 3, 7), (2, 7, 6),  # Back face
-        (7, 5, 6),             # Back face diagonal
-        (3, 0, 4), (3, 4, 7)   # Left face
+    edges = [
+        (2, 3), (2, 6), (6, 7), (3, 7),  # Bottom Square
+        (4, 5), (0, 1), (0, 4), (1, 5),  # Top Square
+        (0, 2), (7, 5), (4, 6), (3, 1),  # Front & Back Cross
+        (4, 3), (7, 0), (5, 2), (1, 6),  # Left & Right Cross
+        (0, 3), (4, 7), (6, 5), (1, 2),  # Verticals
+        (4, 1), (5, 0), (7, 2), (3, 6)   # Top & Bottom Cross
     ]
 
     # Create and return the Entity for the boundary
     return Entity(
-        model=Mesh(vertices=vertices, triangles=triangles, mode='line'), # Use the wireframe mode
-        color=color.white # Set the wireframe colour to white
+        model=Mesh(vertices=vertices, triangles=edges, mode='line'), # Use the wireframe mode
+        color=color.white33 # Set the wireframe colour to white
     )
 
 def refresh_obstacle():
@@ -90,26 +96,10 @@ def reset_boundaries():
     # Recreate boundary using current config
     boundary = create_boundary()
 
-def spawn_agents():
-    """
-    Spawn agents according to values set by simulation_config.
 
-    Returns: List of agents with set position and direction.
-    """
+def spawn_agents():
     print(f"SPAWNING AGENTS ------")
     Agent.all_agents.clear()
-
-    color_mode = simulation_config["agent_colour_mode"]
-    color_choices = [
-        color.white, color.black,
-        color.red, color.green, color.blue,
-        color.yellow, color.orange, color.pink,
-        color.magenta, color.cyan, color.azure,
-        color.lime, color.violet, color.brown,
-        color.gray
-    ]
-
-    agents = []
 
     for _ in range(simulation_config["num_agents"]):
         agent = Agent(
@@ -125,14 +115,81 @@ def spawn_agents():
             ]
         )
 
-        # Assign color
+    return Agent.all_agents
+
+from ursina import Mesh
+
+def create_arrowhead_mesh():
+    vertices = [
+        (0.0,  0.0,  1.0),   # tip
+        (-0.2, -0.2, 0.0),   # base 1
+        ( 0.2, -0.2, 0.0),   # base 2
+        ( 0.2,  0.2, 0.0),   # base 3
+        (-0.2,  0.2, 0.0)    # base 4
+    ]
+    faces = [
+        (0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 1),  # front
+        (2, 1, 0), (3, 2, 0), (4, 3, 0), (1, 4, 0)   # backfaces
+    ]
+    return Mesh(vertices=vertices, triangles=faces, mode='triangle')
+
+
+def redraw_agents():
+    global color_choices, agent_entities
+
+    color_mode = simulation_config["agent_colour_mode"]
+
+    for ent in agent_entities:
+        destroy(ent)
+
+    for agent in Agent.all_agents:
         if color_mode == "multi":
-            agent.color = random.choice(color_choices)
+            base = getattr(color, color_mode, color.cyan)
+            v = clamp(base.v * random.uniform(0.7, 1.8), 0, 1)
+            s = clamp(base.s * random.uniform(0.6, 1.3), 0, 1)
+            h = base.h + random.uniform(-180, 180)
+
+            agent.color = color.color(h, s, v)
         else:
-            agent.color = getattr(color, color_mode, color.white)
+            base = getattr(color, color_mode, color.white)
+            v = clamp(base.v * random.uniform(0.7, 1.8), 0, 1)
+            s = clamp(base.s * random.uniform(0.6, 1.3), 0, 1)
+            h = base.h + random.uniform(-40, 40)
 
-        agents.append(agent)
+            agent.color = color.color(h, s, v)
 
-    return agents
+    agent_entities = [
+        Entity(
+            model='models/tailor.obj',
+            color=agent.color,  # ← use the color set in spawn_agents
+            scale=simulation_config["agent_scale"],
+            position=agent.position
+        )
+        for agent in Agent.all_agents
+    ]
 
+    return agent_entities
+
+def reset_simulation(recorder = None):
+    global agent_entities, boundary
+
+
+    if recorder and recorder.is_recording():
+        recorder.last_reset_frame_index = len(recorder.frames)
+
+    # Destroy the current boundary
+    destroy(boundary)
+    refresh_obstacle()
+
+    color_mode = simulation_config["agent_colour_mode"]
+
+    # Recreate agents and their visual entities
+    spawn_agents()
+    agent_entities = redraw_agents()
+
+    # Recreate boundary and camera
+    boundary = create_boundary()
+    set_camera()
+
+    return agent_entities
 

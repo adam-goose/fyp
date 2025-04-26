@@ -81,6 +81,7 @@ class SimulationPlayback:
         self.current_frame = 0
         self.loaded = False
         self.playing = False
+        self.reset_flags = None
 
     def load(self, filepath):
         try:

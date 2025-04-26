@@ -3,7 +3,7 @@ from simulation import *
 from config import *
 from ursina import *
 from settings_ui import *
-from config import default_simulation_config, simulation_config
+from config import default_simulation_config, simulation_config, pack_boundaries, unpack_boundaries
 import time
 import psutil
 from collections import deque
@@ -29,8 +29,7 @@ recorder = SimulationRecorder()
 playback = SimulationPlayback()
 
 # Initialize agents
-agents = spawn_agents()
-refresh_obstacle()
+agent_entities = simulation.reset_simulation()
 
 auto_rotate_enabled = False
 orbit_angle = 0
@@ -48,18 +47,6 @@ stage_index = 0
 stage_frame_counter = 0
 current_agent_count = agent_stages[0][0]  # start with 20
 
-
-# Create an Ursina Entity for each agent and store in a list
-# DEBUGGING - MAKES THE FIRST AGENT RED, SECOND GREEN, AND THIRD YELLOW
-agent_entities = [
-        Entity(
-            model="cube",
-            color=agent.color,  # ← use the color set in spawn_agents
-            scale=simulation_config["agent_scale"],
-            position=agent.position
-        )
-        for agent in agents
-    ]
 
 simulation.set_camera()
 
@@ -117,7 +104,7 @@ def save_full_log(filename="full_performance_log.csv"):
 
 def update():
     global last_time
-    global orbit_angle, current_count, agents
+    global orbit_angle, current_count, agent_entities
     current_time = time.time()
     elapsed_time = current_time - last_time
 
@@ -139,14 +126,6 @@ def update():
     if elapsed_time < frame_duration:
         time.sleep(frame_duration - elapsed_time)  # Sleep to maintain 30 FPS
 
-    if agents:
-        avg_speed = sum(agent.speed for agent in agents) / len(agents)
-        #speed_readout.text = f"Avg Speed: {avg_speed:.2f}"
-
-        #first_agent_speed = agents[0].speed
-        #first_agent_speed_readout.text = f"First Agent Speed: {first_agent_speed:.2f}"
-        #second_agent_speed_readout.text = f"Second Agent Speed: {agents[1].speed:.2f}"
-        #third_agent_speed_readout.text = f"Third Agent Speed: {agents[2].speed:.2f}"
 
     if recorder.is_recording():
         packed_boundaries = pack_boundaries(simulation_config)
@@ -156,9 +135,11 @@ def update():
 
     if not playback.is_playing():
         # Normal simulation logic
-        for agent, agent_entity in zip(agents, agent_entities):
+        for agent, agent_entity in zip(Agent.all_agents, agent_entities):
             agent.update_position()
             agent_entity.position = agent.position
+            agent_entity.look_at(agent.direction + agent.position)
+            agent_entity.rotate(Vec3(90, -90, 0))
     else:
         # Playback logic
         frame = playback.update()
@@ -167,11 +148,10 @@ def update():
             dir_frame = frame['directions']
 
             if frame['reset'] or playback.current_frame == 1:
+                print(f"RESET FRAME ----------------------------------------------- RESET FRAME")
                 current_count = frame['num_agents']
                 simulation_config["num_agents"] = current_count
-                reset_simulation()
-                print(f"Frame: {playback.current_frame}")
-                print(f"TRUE")
+                agent_entities = reset_simulation()
 
             # Update config and environment visuals
             simulation_config["obstacle_enabled"] = frame['obstacle_toggle']
@@ -183,38 +163,14 @@ def update():
 
             # Update agent visuals
             for i in range(current_count):
-                print(f"AG Frame: {playback.current_frame}")
-                agents[i].position = pos_frame[i]
-                agents[i].direction = dir_frame[i]
+                Agent.all_agents[i].position = pos_frame[i]
+                Agent.all_agents[i].direction = dir_frame[i]
                 agent_entities[i].position = pos_frame[i]
+                agent_entities[i].look_at(Agent.all_agents[i].direction + Agent.all_agents[i].position)
+                agent_entities[i].rotate(Vec3(90, -90, 0))
 
     last_time = time.time()
     #log_performance(Agent.all_agents)
-
-def pack_boundaries(config):
-    """
-    Converts boundary dictionary into a 1D NumPy array:
-    [x_min, x_max, y_min, y_max, z_min, z_max]
-    """
-    return np.array([
-        config["x_min"],
-        config["x_max"],
-        config["y_min"],
-        config["y_max"],
-        config["z_min"],
-        config["z_max"]
-    ], dtype=np.float32)
-
-def unpack_boundaries(boundary_array, config):
-    """
-    Applies a boundary array back into the simulation_config dict.
-    """
-    config["x_min"] = boundary_array[0]
-    config["x_max"] = boundary_array[1]
-    config["y_min"] = boundary_array[2]
-    config["y_max"] = boundary_array[3]
-    config["z_min"] = boundary_array[4]
-    config["z_max"] = boundary_array[5]
 
 
 def toggle_auto_rotate():
@@ -233,41 +189,15 @@ def toggle_auto_rotate():
         if orbit_radius < 0.01:
             orbit_radius = 10  # fallback if they're dead center
 
+def reset_helper():
+    global agent_entities
+    agent_entities = simulation.reset_simulation(recorder)
 
+def handle_agent_redraw():
+    global agent_entities
+    agent_entities = redraw_agents()
 
-def reset_simulation():
-    global agents, agent_entities, boundary
-
-    # Destroy current agent entities
-    for ent in agent_entities:
-        destroy(ent)
-
-    if recorder.is_recording():
-        recorder.last_reset_frame_index = len(recorder.frames)
-        print(f"Last recorded frame index: {recorder.last_reset_frame_index}")
-        print(f"Total frames recorded: {len(recorder.frames)}")
-
-    # Destroy the current boundary
-    destroy(boundary)
-    refresh_obstacle()
-
-    color_mode = simulation_config["agent_colour_mode"]
-
-    # Recreate agents and their visual entities
-    agents = spawn_agents()
-    agent_entities = [
-        Entity(
-            model="cube",
-            color=agent.color,  # ← use the color set in spawn_agents
-            scale=simulation_config["agent_scale"],
-            position=agent.position
-        )
-        for agent in agents
-    ]
-
-    # Recreate boundary and camera
-    boundary = simulation.create_boundary()
-    simulation.set_camera()
+register_redraw_callback(handle_agent_redraw)
 
 def reset_simulation_to_default():
     # Overwrite current config with defaults
@@ -287,7 +217,7 @@ def reset_simulation_to_default():
                     child.value = default_simulation_config[child.key]
 
     # Reset sim with the fresh config
-    reset_simulation()
+    reset_helper()
 
 def toggle_recording():
     if not recorder.is_recording():
@@ -359,7 +289,7 @@ obstacle_button.on_click = lambda: toggle_settings(obstacle_ui, background_dimme
 
 reset_button = Button(text="Reset Sim", parent=camera.ui,
                       position=(-0.7, -0.2, -0.5), scale=(0.2, 0.05), color=color.azure)
-reset_button.on_click = reset_simulation
+reset_button.on_click = reset_helper
 
 reset_default_button = Button(text="Reset Default", parent=camera.ui,
                               position=(-0.7, -0.3, -0.5), scale=(0.2, 0.05), color=color.orange)

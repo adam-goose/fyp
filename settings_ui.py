@@ -1,8 +1,10 @@
 # settings_ui.py
 from ursina import *
+
+
 from config import update_config
 from config import *
-from simulation import refresh_obstacle, reset_boundaries
+from simulation import refresh_obstacle, reset_boundaries, redraw_agents
 
 # Define Slider data for each category with updated menus: Agent, Simulation, and Physics.
 movement_sliders = [
@@ -25,7 +27,7 @@ agent_sliders = [
 
 simulation_sliders = [
     {"min": 0, "max": 100, "default": simulation_config["num_agents"], "text": "Number of Agents", "key": "num_agents"},
-    {"min": 0.1, "max": 2, "default": simulation_config["agent_scale"], "text": "Agent Size", "key": "agent_scale"},
+    {"min": 1, "max": 3, "default": simulation_config["agent_scale"], "text": "Agent Size", "key": "agent_scale"},
     {"min": 0, "max": 15, "default": simulation_config["x_max"], "text": "X Boundary", "key": "x_max"},
     {"min": 0, "max": 15, "default": simulation_config["y_max"], "text": "Y Boundary", "key": "y_max"},
     {"min": 0, "max": 15, "default": simulation_config["z_max"], "text": "Z Boundary", "key": "z_max"},
@@ -52,10 +54,17 @@ obstacle_sliders = [
     {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_max"][1], "text": "Obstacle Max Y", "key": "obstacle_corner_max[1]"},
     {"min": -15, "max": 15, "step": 0.1, "default": simulation_config["obstacle_corner_max"][2], "text": "Obstacle Max Z", "key": "obstacle_corner_max[2]"},
 ]
+_redraw_callback = None
+
+def register_redraw_callback(cb):
+    global _redraw_callback
+    _redraw_callback = cb
 
 def update_agent_color(color_name):
     simulation_config['agent_colour_mode'] = color_name
     print(f"Agent colour set to: {color_name}")
+    if _redraw_callback:
+        _redraw_callback()
 
 def update_obstacle_color(color):
     simulation_config['obstacle_colour'] = color
