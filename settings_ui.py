@@ -148,9 +148,11 @@ def create_settings_ui():
 
 def create_sliders(container, slider_data):
     """Helper function to create sliders for a given container."""
+    boundary_keys = ['x_max', 'y_max', 'z_max']
+
     for i, data in enumerate(slider_data):
         slider = Slider(
-            key = data['key'],  # 👈 Attach the key directly to the slider
+            key = data['key'],
             min=data['min'],
             max=data['max'],
             default=data['default'],
@@ -159,31 +161,33 @@ def create_sliders(container, slider_data):
             scale=(1, 1),
             text=data['text']
         )
+
         if data['key'] in ['camera_position[0]', 'camera_position[1]', 'camera_position[2]']:
             if len(slider.children) > 2:
-                slider.children[2].text = ""  # ← Erases the text content, leaves slider button intact
+                slider.children[2].text = ""
 
-        slider.children[0].z = -1  # Lowering the z value draws it on top.
+        slider.children[0].z = -1  # Draw slider on top
 
         key = data['key']
 
         if key in ['camera_position[0]', 'camera_position[1]', 'camera_position[2]']:
             slider.update = lambda s=slider, k=key: update_config(k, s)
 
-        if 'key' in data:
-            if data['key'] == "num_agents":
-                def snap_to_int(sl=slider, k=data['key']):
-                    sl.value = round(sl.value)  # snap visually
-                    update_config(k, sl)  # pass the slider object as expected
+        if key == "num_agents":
+            def snap_to_int(sl=slider, k=key):
+                sl.value = round(sl.value)
+                update_config(k, sl)
+            slider.on_value_changed = snap_to_int
 
-                slider.on_value_changed = snap_to_int
-
-            else:
-                slider.on_value_changed = lambda s=slider, k=data['key']: (
-                    update_config(k, s),
-                    refresh_obstacle(),
+        else:
+            def on_value_changed(s=slider, k=key):
+                update_config(k, s)
+                refresh_obstacle()
+                if k in boundary_keys:
                     reset_boundaries()
-                )
+
+            slider.on_value_changed = on_value_changed
+
 
 def update_background_dimmer(background_dimmer, settings_containers):
     """Update the background dimmer based on whether any settings container is active."""

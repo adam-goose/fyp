@@ -1,7 +1,9 @@
+from ursina import *
+app = Ursina()
+
 import simulation
 from simulation import *
 from config import *
-from ursina import *
 from settings_ui import *
 from config import default_simulation_config, simulation_config, pack_boundaries, unpack_boundaries
 import time
@@ -20,8 +22,8 @@ from tkinter import filedialog
 tk_root = tk.Tk()
 tk_root.withdraw()
 
-# Initialise the Ursina app
-app = Ursina()
+DirectionalLight(shadows=True, rotation=(90, 10, 0))
+AmbientLight(color=Color(255/255, 245/255, 220/255, 100/255))  # Warm white
 
 last_time = time.time()
 
@@ -139,7 +141,7 @@ def update():
             agent.update_position()
             agent_entity.position = agent.position
             agent_entity.look_at(agent.direction + agent.position)
-            agent_entity.rotate(Vec3(90, -90, 0))
+
     else:
         # Playback logic
         frame = playback.update()
