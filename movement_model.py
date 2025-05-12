@@ -1,20 +1,31 @@
 from config import simulation_config
-import config
 from agent import Agent
 from physics import *
 import numpy as np
 
 class MovementModel:
     """
-    Base class for movement models.
-    """
-    def calc_movement(self, current_agent, all_agents):
-        raise NotImplementedError("Subclasses must implement calc_movement")
+    Abstract base class for movement models.
 
+    Subclasses must implement:
+        - update_position(current_agent, all_agents): defines how an agent updates its position.
+    """
+    def update_position(self, current_agent, all_agents):
+        """
+        Update the position of an agent. Must be implemented by subclasses.
+
+        :param current_agent: The agent whose position is being updated.
+        :param all_agents: A list of all agents in the simulation.
+        """
+        raise NotImplementedError("Subclasses must implement update_position")
 
 
 class Boids(MovementModel):
-    # Class attributes
+    """
+    Boids movement model implementing flocking behavior with cohesion, alignment,
+    separation, and environmental repulsion forces.
+    """
+    # Preallocated buffers for efficient neighbour calculations
     buffer_size = 100
     positions = np.zeros((buffer_size, 3))
     directions = np.zeros((buffer_size, 3))
@@ -24,23 +35,28 @@ class Boids(MovementModel):
 
     @staticmethod
     def precompute_agent_data(current_agent, all_agents):
+        """
+        Precompute relative positions, directions, and distances to all agents.
+        This optimises subsequent cohesion, alignment, and separation calculations.
+        """
         n = len(all_agents)
-
         if n > Boids.buffer_size:
             Boids.resize_buffers(n)
 
+        # Store global data relative to current agent
         Boids.positions[:n] = [a.position for a in all_agents]
         Boids.directions[:n] = [a.direction for a in all_agents]
         Boids.speeds[:n] = [a.speed for a in all_agents]
-        current_position = current_agent.position
-
-        Boids.deltas[:n] = Boids.positions[:n] - current_position
+        Boids.deltas[:n] = Boids.positions[:n] - current_agent.position
         Boids.distances[:n] = np.linalg.norm(Boids.deltas[:n], axis=1)
 
         return Boids.positions[:n], Boids.directions[:n], Boids.deltas[:n], Boids.distances[:n]
 
     @staticmethod
     def resize_buffers(new_size):
+        """
+        Resize internal numpy buffers to accommodate more agents.
+        """
         Boids.buffer_size = new_size
         Boids.positions = np.zeros((new_size, 3))
         Boids.directions = np.zeros((new_size, 3))
@@ -49,6 +65,10 @@ class Boids(MovementModel):
 
     @staticmethod
     def sync_buffers_from_agents(agent_list):
+        """
+        Sync position, direction, and speed buffers from the agent list.
+        This may be used when rendering or debugging.
+        """
         n = len(agent_list)
         for i in range(n):
             Boids.positions[i] = agent_list[i].position
@@ -57,187 +77,142 @@ class Boids(MovementModel):
 
     @staticmethod
     def update_agent_logic(current_agent, all_agents):
+        """
+        Apply both steering and speed update logic to an agent.
+        This is useful in simulations with separate movement and update steps.
+        """
         Boids.adjust_speed(current_agent)
         Boids.adjust_direction(current_agent)
 
-    @staticmethod
-    def calc_cohesion(current_agent, positions, distances, cohesion_radius=None):
-        if cohesion_radius is None:
-            cohesion_radius = simulation_config["cohesion_radius"]
-
-        mask = (distances > 0) & (distances <= cohesion_radius)
-
-        if not np.any(mask):
-            return np.zeros(3)
-
-        relevant_positions = positions[mask]
-        average_position = np.mean(relevant_positions, axis=0)
-
-        cohesion_vector = average_position - current_agent.position
-        norm = np.linalg.norm(cohesion_vector)
-        if norm > 0:
-            cohesion_vector /= norm
-
-        return cohesion_vector
-
-    @staticmethod
-    def calc_alignment(current_agent, directions, distances, alignment_radius=None):
-        if alignment_radius is None:
-            alignment_radius = simulation_config["alignment_radius"]
-
-        # Exclude self (distance = 0) and apply radius
-        mask = (distances > 0) & (distances <= alignment_radius)
-
-        if not np.any(mask):
-            return np.zeros(3)
-
-        relevant_directions = directions[mask]
-        alignment_vector = np.mean(relevant_directions, axis=0)
-
-        norm = np.linalg.norm(alignment_vector)
-        if norm > 0:
-            alignment_vector /= norm
-
-        return alignment_vector
-
-    @staticmethod
-    def calc_separation(deltas, distances, separation_radius=None):
-        if separation_radius is None:
-            separation_radius = simulation_config["separation_radius"]
-
-        # Mask: ignore self and keep only agents within radius
-        mask = (distances > 0) & (distances <= separation_radius)
-
-        if not np.any(mask):
-            return np.zeros(3)
-
-        # Grab relevant slices
-        relevant_deltas = deltas[mask]
-        relevant_distances = distances[mask].reshape(-1, 1)
-
-        # Inverse-square repulsion
-        repulsions = -relevant_deltas / (relevant_distances ** 2)
-
-        separation_vector = np.sum(repulsions, axis=0)
-
-        norm = np.linalg.norm(separation_vector)
-        if norm > 0:
-            separation_vector /= norm
-
-        return separation_vector
-
-    @staticmethod
-    def update_position(current_agent, all_agents):
-        Boids.adjust_speed(current_agent)
-
+    def update_position(self, current_agent, all_agents):
+        """
+        Update an agent's position using its speed and direction.
+        The actual movement step based on calculated state.
+        """
+        self.adjust_speed(current_agent)
         velocity = current_agent.direction * current_agent.speed
+        current_agent.position += velocity * 0.1  # Movement step
 
-        # Update position using the new direction, current speed, and time step
-        current_agent.position += velocity * 0.1
+    @staticmethod
+    # Cohesion pulls agents toward the average position of neighbors within a radius
+    # This encourages the group to stay together
+    def calc_cohesion(current_agent, positions, distances, cohesion_radius=None):
+        """
+        Compute cohesion vector toward nearby agents.
+        Steers the agent toward the average position of neighbors.
+        """
+        cohesion_radius = cohesion_radius or simulation_config["cohesion_radius"]
+        mask = (distances > 0) & (distances <= cohesion_radius)
+        if not np.any(mask): return np.zeros(3)
+        average_position = np.mean(positions[mask], axis=0)
+        vec = average_position - current_agent.position
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 0 else np.zeros(3)
+
+    @staticmethod
+    # Alignment steers an agent in the same direction as its neighbors
+    # It uses the average heading of agents within the alignment radius
+    def calc_alignment(current_agent, directions, distances, alignment_radius=None):
+        """
+        Compute alignment vector from neighboring agents' headings.
+        Steers agent to align with average heading of neighbors.
+        """
+        alignment_radius = alignment_radius or simulation_config["alignment_radius"]
+        mask = (distances > 0) & (distances <= alignment_radius)
+        if not np.any(mask): return np.zeros(3)
+        avg = np.mean(directions[mask], axis=0)
+        norm = np.linalg.norm(avg)
+        return avg / norm if norm > 0 else np.zeros(3)
+
+    @staticmethod
+    # Separation pushes agents away from others that are too close
+    # Inverse square repulsion is used for stronger force at closer distances
+    def calc_separation(deltas, distances, separation_radius=None):
+        """
+        Compute separation vector to avoid crowding.
+        Repels from neighbors that are too close.
+        """
+        separation_radius = separation_radius or simulation_config["separation_radius"]
+        mask = (distances > 0) & (distances <= separation_radius)
+        if not np.any(mask): return np.zeros(3)
+        repulsions = -deltas[mask] / (distances[mask].reshape(-1, 1) ** 2)
+        vec = np.sum(repulsions, axis=0)
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 0 else np.zeros(3)
 
     @staticmethod
     def adjust_speed(current_agent):
-        # Cache simulation_config values
-        deceleration = simulation_config["deceleration"]
-        acceleration = simulation_config["acceleration"]
-        momentum_weight = simulation_config["momentum_weight"]
-        max_speed = simulation_config["max_speed"]
+        """
+        Smoothly adjust the speed of the agent based on turning and target dynamics.
+        Uses exponential smoothing to simulate acceleration and deceleration.
+        """
+        acc = simulation_config["acceleration"]
+        dec = simulation_config["deceleration"]
+        weight = simulation_config["momentum_weight"]
+        max_spd = simulation_config["max_speed"]
+        target = Boids.calc_speed(current_agent)
 
-        # Compute the desired target speed
-        target_speed = Boids.calc_speed(current_agent)
-
-        # If target speed is lower than current speed, decelerate smoothly
-        if target_speed < current_agent.speed:
-            speed_change = (current_agent.speed - target_speed) * (1 - np.exp(-deceleration))
-            current_agent.speed -= speed_change / (1 / momentum_weight)
+        if target < current_agent.speed:
+            # Decelerating
+            delta = (current_agent.speed - target) * (1 - np.exp(-dec))
+            current_agent.speed -= delta / (1 / weight)
         else:
-            # Normal acceleration logic
-            speed_change = (target_speed - current_agent.speed) * (1 - np.exp(-acceleration))
-            current_agent.speed += speed_change / (1 / momentum_weight)
+            # Accelerating
+            delta = (target - current_agent.speed) * (1 - np.exp(-acc))
+            current_agent.speed += delta / (1 / weight)
 
-        # Clamp speed between min and max
-        current_agent.speed = max(current_agent.min_speed, min(max_speed, current_agent.speed))
+        # Clamp to valid speed range
+        current_agent.speed = max(current_agent.min_speed, min(max_spd, current_agent.speed))
 
     @staticmethod
     def calc_speed(current_agent):
-        old_direction = Boids.adjust_direction(current_agent)
-
-        turn_sensitivity = simulation_config["turn_sensitivity"]
-        max_speed = simulation_config["max_speed"]
-
-        # Compute the angle between current and desired direction
-        alignment = np.dot(current_agent.direction, old_direction)
-        alignment = np.clip(alignment, -1, 1)
-        turn_angle = np.arccos(alignment)
-
-
-        # Define a small threshold for "going straight" (in radians)
-        straight_threshold = np.radians(turn_sensitivity)  # Adjust this as needed
-
-        if turn_angle <= straight_threshold:
-            # Going nearly straight: full forward speed.
-            return max_speed
-        else:
-            # Turning: return a negative target speed to trigger deceleration.
-            return -abs(max_speed)
+        """
+        Determine target speed based on turning angle.
+        If turning sharply, speed is reduced. If moving straight, speed is maximised.
+        """
+        old = Boids.adjust_direction(current_agent)
+        align = np.clip(np.dot(current_agent.direction, old), -1, 1)
+        angle = np.arccos(align)
+        threshold = np.radians(simulation_config["turn_sensitivity"])
+        return simulation_config["max_speed"] if angle <= threshold else -abs(simulation_config["max_speed"])
 
     @staticmethod
+    # Adjust direction with momentum blending
+    # Smooths out sudden direction changes using a weighted average
     def adjust_direction(current_agent):
-        direction_alpha = simulation_config["direction_alpha"]
-        momentum_weight = simulation_config["momentum_weight"]
-
-        # Normalize vectors to ensure unit length
-        current_direction = current_agent.direction / np.linalg.norm(current_agent.direction)
-        combined_vector = Boids.calc_direction(current_agent)
-
-        adjusted_alpha = direction_alpha / momentum_weight
-        new_direction = (1 - adjusted_alpha) * current_direction + adjusted_alpha * combined_vector
-
-        # Normalize again to maintain unit vector
-        new_direction = new_direction / np.linalg.norm(new_direction)
-        old_direction = current_agent.direction
-        current_agent.direction = new_direction
-
-        return old_direction
-
+        """
+        Blend current direction with calculated desired direction vector.
+        Used for momentum-based steering.
+        """
+        alpha = simulation_config["direction_alpha"] / simulation_config["momentum_weight"]
+        current = current_agent.direction / np.linalg.norm(current_agent.direction)
+        target = Boids.calc_direction(current_agent)
+        new = (1 - alpha) * current + alpha * target
+        new /= np.linalg.norm(new)
+        old = current_agent.direction
+        current_agent.direction = new
+        return old
 
     @staticmethod
+    # Calculate the desired movement direction based on multiple forces
+    # Combines cohesion, alignment, separation, and environmental repulsion
     def calc_direction(current_agent):
-        positions, directions, deltas, distances = Boids.precompute_agent_data(current_agent, Agent.all_agents)
+        """
+        Combine all weighted steering vectors to compute final heading.
+        Includes wall and obstacle avoidance.
+        """
+        pos, dir, delta, dist = Boids.precompute_agent_data(current_agent, Agent.all_agents)
+        cfg = simulation_config
 
-        boundary_threshold = simulation_config["boundary_threshold"]
-        boundary_max_force = simulation_config["boundary_max_force"]
-        cohesion_weight = simulation_config["cohesion_weight"]
-        alignment_weight = simulation_config["alignment_weight"]
-        separation_weight = simulation_config["separation_weight"]
-        wall_repulsion_weight = simulation_config["wall_repulsion_weight"]
-
-        cohesion_vector = Boids.calc_cohesion(current_agent, positions, distances)
-        alignment_vector = Boids.calc_alignment(current_agent, directions, distances)
-        separation_vector = Boids.calc_separation(deltas, distances)
-
-        # Calculate wall repulsion force
-        wall_repulsion_vector = WallPhysics.calc_wall_repulsion(current_agent)  # Repulsion force from walls
-
-        # Calculate obstacle repulsion force
-        obstacle_repulsion_vector = ObstaclePhysics.calculate_obstacle_repulsion(current_agent.position,boundary_threshold,boundary_max_force)
-
-        # Combine vectors with respective weights from simulation configuration
-        combined_vector = (
-                cohesion_weight * cohesion_vector +
-                alignment_weight * alignment_vector +
-                separation_weight * separation_vector +
-                wall_repulsion_weight * wall_repulsion_vector +
-                wall_repulsion_weight * obstacle_repulsion_vector
+        # Weighted sum of all steering behaviours
+        combined = (
+            cfg["cohesion_weight"] * Boids.calc_cohesion(current_agent, pos, dist) +
+            cfg["alignment_weight"] * Boids.calc_alignment(current_agent, dir, dist) +
+            cfg["separation_weight"] * Boids.calc_separation(delta, dist) +
+            cfg["wall_repulsion_weight"] * WallPhysics.calc_wall_repulsion(current_agent) +
+            cfg["wall_repulsion_weight"] * ObstaclePhysics.calculate_obstacle_repulsion(current_agent.position, cfg["boundary_threshold"], cfg["boundary_max_force"])
         )
 
-        # Check if the combined vector is zero or near-zero
-        vector_magnitude = np.linalg.norm(combined_vector)
-        if vector_magnitude < 1e-6:  # Threshold for near-zero magnitude
-            # Replace the zero vector with a random unit vector
-            combined_vector = current_agent.direction
-
-        combined_vector = combined_vector / np.linalg.norm(combined_vector)
-
-        return combined_vector
-
+        # Normalize result, fall back to current direction if zero
+        norm = np.linalg.norm(combined)
+        return (combined / norm) if norm > 1e-6 else current_agent.direction

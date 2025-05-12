@@ -6,54 +6,46 @@ class Agent:
     """
     Represents an individual agent in the swarm simulation.
 
-    Each agent has attributes for its position, direction, and speed, as well
-    as behaviors for flocking (cohesion, alignment, separation), wall repulsion,
-    and movement dynamics. The `Agent` class also maintains a class-level list
-    (`all_agents`) to track all instantiated agents.
-
-    Attributes:
-        all_agents (list): A class-level variable that stores all instances of the `Agent` class.
-
+    Each agent has position, direction, and speed, and contributes
+    to the collective swarm behavior via a shared class-level list.
     """
-    # Class level variables
-    all_agents = [] # Stores all agents in a list
-    max_speed = simulation_config["max_speed"]  # Assigns the maximum speed
-    min_speed = simulation_config["min_speed"]  # Assigns the minimum speed
 
+    # Shared list for tracking all agents
+    all_agents = []
+
+    # Speed bounds pulled from config
+    max_speed = simulation_config["max_speed"]
+    min_speed = simulation_config["min_speed"]
 
     def __init__(self, position, direction):
         """
-        Initialize an Agent instance with position and direction.
+        Initialize an Agent with position and normalized direction.
 
-        This constructor sets up the agent's position and direction,
-        normalizes the direction to a unit vector, and initializes other
-        attributes like desired, initial speed bounds, maximum, and
-        minimum speeds based on the simulation configuration.
-
-        Args:
-            position (list or np.ndarray): The initial position of the agent as a 3D vector [x, y, z].
-            direction (list or np.ndarray): The initial movement direction of the agent as a 3D vector.
-
-        Raises:
-            ValueError: If the direction vector has zero magnitude and cannot be normalized.
+        :param position: Initial 3D position as a list or numpy array.
+        :param direction: Initial 3D direction (will be normalized).
         """
-        # Convert the position to a numpy array to allow vector operations
-        self.position = np.array(position, dtype=float) # Ensure position is a numpy array
+        # Store position as NumPy array for vector math
+        self.position = np.array(position, dtype=float)
 
-        # Convert the direction to a numpy array and normalise it to a unit vector
-        self.direction = np.array(direction, dtype=float) # Ensure direction is a numpy array
-        self.direction = self.direction / np.linalg.norm(self.direction) # Normalise direction to make it a unit vector
-        self.speed = random.uniform(simulation_config["init_speed_bounds"][0], simulation_config["init_speed_bounds"][1])
-        # Initialise the agent's speed to a random value within the configured bounds
+        # Normalize direction vector to unit length
+        self.direction = np.array(direction, dtype=float)
+        norm = np.linalg.norm(self.direction)
+        if norm == 0:
+            raise ValueError("Direction vector cannot be zero.")
+        self.direction /= norm
 
-        # Add self to the class level all_agents list
+        # Random initial speed within bounds
+        self.speed = random.uniform(
+            simulation_config["init_speed_bounds"][0],
+            simulation_config["init_speed_bounds"][1]
+        )
+
+        # Register this agent in the global list
         Agent.all_agents.append(self)
-
 
     def update_position(self):
         """
-        may no longer be relevant
+        Update this agent's position using the configured movement model.
         """
-
-        get_movement_model_by_name(simulation_config["movement_model"]).update_position(self, self.all_agents)
-
+        model = get_movement_model_by_name(simulation_config["movement_model"])
+        model.update_position(self, self.all_agents)

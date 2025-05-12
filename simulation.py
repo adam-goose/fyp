@@ -1,121 +1,169 @@
+import csv
 import random
+import time
+import datetime
+import psutil
+
 from ursina import *
 from agent import Agent
 from config import simulation_config
 
-# Frame timing setup
+# === SIMULATION PARAMETERS ===
+
 frame_duration = simulation_config["frame_duration"]
 
+# Entity containers
 obstacle_entity = None
+boundary = None
 agent_entities = []
 rock_entities = []
 lotus_entities = []
 pillar_entities = []
-color_choices = [
-        color.white, color.black,
-        color.red, color.green, color.blue,
-        color.yellow, color.orange, color.pink,
-        color.magenta, color.cyan, color.azure,
-        color.lime, color.violet, color.brown,
-        color.gray
-    ]
 
-# Define camera position and direction
+color_choices = [
+    color.white, color.black, color.red, color.green, color.blue,
+    color.yellow, color.orange, color.pink, color.magenta, color.cyan,
+    color.azure, color.lime, color.violet, color.brown, color.gray
+]
+
+_reset_frame_callback = None
+
+# === RESET CALLBACK REGISTRATION ===
+
+def register_reset_callback(cb):
+    """
+    Register a callback function to be invoked during boundary resets.
+
+    :param cb: A callable to be registered as the reset callback.
+    """
+    global _reset_frame_callback
+    _reset_frame_callback = cb
+
+
+# === CAMERA SETUP ===
+
 def set_camera():
     """
-    Define camera position and direction according to values set by simulation_config.
+    Set the camera position and orientation based on simulation configuration.
 
+    :return: None
     """
-    camera.position = simulation_config["camera_position"]  # Position of the camera within the scene
-    camera.look_at(simulation_config["camera_look_at"])  # Direction the camera looks at
-    camera.rotation_z = 0  # Force no roll
+    camera.position = simulation_config["camera_position"]
+    camera.look_at(simulation_config["camera_look_at"])
+    camera.rotation_z = 0  # Prevent camera roll
 
 
-from ursina import *
+# === COLOR UTILITY FUNCTION ===
 
-from ursina import *
-import random
+def generate_agent_color(base_color_mode: str, multi_mode: bool = False) -> color:
+    """
+    Generate a randomized color variation based on a base color name.
+
+    :param base_color_mode: The base color name as a string.
+    :param multi_mode: If True, applies a broader hue variation.
+    :return: A randomized Ursina color.
+    """
+    base = getattr(color, base_color_mode, color.cyan if multi_mode else color.white)
+    v = clamp(base.v * random.uniform(0.7, 1.8), 0, 1)
+    s = clamp(base.s * random.uniform(0.6, 1.3), 0, 1)
+    h = base.h + random.uniform(-180, 180) if multi_mode else base.h + random.uniform(-20, 20)
+    return color.color(h, s, v)
+
+
+# === BOUNDARY AND ENVIRONMENT SETUP ===
 
 def create_boundary():
+    """
+    Create the simulation boundary and decorative elements (rocks, lotus, pillars).
+
+    :return: A list of wall Entity objects.
+    """
     x_min, x_max = simulation_config["x_min"], simulation_config["x_max"]
     y_min, y_max = simulation_config["y_min"], simulation_config["y_max"]
     z_min, z_max = simulation_config["z_min"], simulation_config["z_max"]
 
-    floor_boundary_color = Color(120/255, 90/255, 60/255, 1)  # Sandy
-    wall_boundary_color = Color(100 / 255, 150 / 255, 255 / 255, 80 / 255)  # Soft translucent blue
+    floor_boundary_color = Color(120/255, 90/255, 60/255, 1)  # Sandy floor color
+    wall_boundary_color = Color(100 / 255, 150 / 255, 255 / 255, 80 / 255)  # Translucent walls
 
     walls = []
 
-    # Create water walls
     for side in ('bottom', 'top', 'front', 'back', 'left', 'right'):
+        # Define geometry and position for each wall based on side
         if side == 'bottom':
             pos = Vec3((x_min + x_max) / 2, y_min, (z_min + z_max) / 2)
-            width = x_max - x_min
-            depth = z_max - z_min
-            scale = Vec3(width, depth, 1)
+            scale = Vec3(x_max - x_min, z_max - z_min, 1)
             rotation = (90, 0, 0)
-
             wall = Entity(
                 model='quad',
-                texture='textures/rock_face_diff_2k.jpg',
+                texture='textures/rock_08_diff_1k.jpg',
                 position=pos,
                 scale=scale,
                 rotation=rotation,
                 double_sided=True,
                 transparency=False,
             )
+        else:
+            if side == 'top':
+                pos = Vec3((x_min+x_max)/2, y_max, (z_min+z_max)/2)
+                scale = Vec3(x_max - x_min, z_max - z_min, 1)
+                rotation = (90, 0, 0)
+            elif side == 'front':
+                pos = Vec3((x_min+x_max)/2, (y_min+y_max)/2, z_min)
+                scale = Vec3(x_max - x_min, y_max - y_min, 1)
+                rotation = (0, 0, 0)
+            elif side == 'back':
+                pos = Vec3((x_min+x_max)/2, (y_min+y_max)/2, z_max)
+                scale = Vec3(x_max - x_min, y_max - y_min, 1)
+                rotation = (0, 180, 0)
+            elif side == 'left':
+                pos = Vec3(x_min, (y_min+y_max)/2, (z_min+z_max)/2)
+                scale = Vec3(z_max - z_min, y_max - y_min, 1)
+                rotation = (0, 90, 0)
+            elif side == 'right':
+                pos = Vec3(x_max, (y_min+y_max)/2, (z_min+z_max)/2)
+                scale = Vec3(z_max - z_min, y_max - y_min, 1)
+                rotation = (0, -90, 0)
 
-        elif side == 'top':
-            pos = Vec3((x_min+x_max)/2, y_max, (z_min+z_max)/2)
-            scale = Vec3(x_max-x_min, z_max-z_min, 1)
-            rotation = (90, 0, 0)
-        elif side == 'front':
-            pos = Vec3((x_min+x_max)/2, (y_min+y_max)/2, z_min)
-            scale = Vec3(x_max-x_min, y_max-y_min, 1)
-            rotation = (0, 0, 0)
-        elif side == 'back':
-            pos = Vec3((x_min+x_max)/2, (y_min+y_max)/2, z_max)
-            scale = Vec3(x_max-x_min, y_max-y_min, 1)
-            rotation = (0, 180, 0)
-        elif side == 'left':
-            pos = Vec3(x_min, (y_min+y_max)/2, (z_min+z_max)/2)
-            scale = Vec3(z_max-z_min, y_max-y_min, 1)
-            rotation = (0, 90, 0)
-        elif side == 'right':
-            pos = Vec3(x_max, (y_min+y_max)/2, (z_min+z_max)/2)
-            scale = Vec3(z_max-z_min, y_max-y_min, 1)
-            rotation = (0, -90, 0)
-
-        if side != 'bottom':
             wall = Entity(
                 model='quad',
-                color=boundary_color,
+                color=wall_boundary_color,
                 position=pos,
                 scale=scale,
                 rotation=rotation,
                 double_sided=True,
                 transparency=True,
             )
-        boundary_color = wall_boundary_color
+
         walls.append(wall)
 
+    # Clear any previously created decorations
     for e in rock_entities + lotus_entities + pillar_entities:
         destroy(e)
 
     rock_entities.clear()
     lotus_entities.clear()
     pillar_entities.clear()
-    
-    # Create decorative elements
-    print(f"CREATE BOUNDARY")
+
+    # Add decorative elements
     create_corners(x_min, x_max, y_min, y_max, z_min, z_max)
     create_rocks(x_min, x_max, y_min, z_min, z_max)
     create_lotus(x_min, x_max, y_max, z_min, z_max)
 
     return walls
 
+# === ROCK DECORATION ===
 
 def create_rocks(x_min, x_max, y_min, z_min, z_max):
+    """
+    Create randomized rock decorations distributed throughout the pond area.
+
+    :param x_min: Minimum X boundary.
+    :param x_max: Maximum X boundary.
+    :param y_min: Floor Y level where rocks sit.
+    :param z_min: Minimum Z boundary.
+    :param z_max: Maximum Z boundary.
+    :return: None
+    """
     global rock_entities
     rock_entities.clear()
 
@@ -128,10 +176,10 @@ def create_rocks(x_min, x_max, y_min, z_min, z_max):
     num_rocks = int(base_rocks * rock_multiplier)
     num_rocks = clamp(num_rocks, 30, 80)
 
-    buffer = 1  # How far from walls rocks are allowed
+    buffer = 1  # Ensure rocks don't spawn right at the edges
     num_clusters = random.randint(3, 5)
 
-    # Select cluster centers, not too close to walls
+    # Generate central points for rock clusters
     cluster_centers = [
         Vec3(
             random.uniform(x_min + buffer, x_max - buffer),
@@ -144,7 +192,7 @@ def create_rocks(x_min, x_max, y_min, z_min, z_max):
     rocks_in_clusters = int(num_rocks * 0.8)
     straggler_rocks = num_rocks - rocks_in_clusters
 
-    # --- Clustered Rocks ---
+    # Clustered rocks
     for _ in range(rocks_in_clusters):
         cluster = random.choice(cluster_centers)
         pos = Vec3(
@@ -154,7 +202,7 @@ def create_rocks(x_min, x_max, y_min, z_min, z_max):
         )
         spawn_rock(pos)
 
-    # --- Straggler Rocks ---
+    # Random standalone rocks
     for _ in range(straggler_rocks):
         pos = Vec3(
             random.uniform(x_min + buffer, x_max - buffer),
@@ -163,13 +211,21 @@ def create_rocks(x_min, x_max, y_min, z_min, z_max):
         )
         spawn_rock(pos)
 
+
 rock_models = [
     'models/rock1.obj',
     'models/rock2.obj',
     'models/rock3.obj'
 ]
 
+
 def spawn_rock(pos):
+    """
+    Spawn a rock entity at a specific position with randomized scale, color, and rotation.
+
+    :param pos: A Vec3 position for the rock.
+    :return: None
+    """
     size_factor = random.random()
     if size_factor < 0.75:
         scale = random.uniform(0.005, 0.01)
@@ -183,10 +239,10 @@ def spawn_rock(pos):
     s = clamp(base.s * random.uniform(0.4, 0.9), 0, 1)
     h = base.h + random.uniform(-5, 5)
 
-    # For larger rocks, darken even more
+    # Darker appearance for larger rocks
     if scale > 0.02:
-        v *= 0.8  # darker
-        s *= 0.9  # slightly desaturate
+        v *= 0.8
+        s *= 0.9
 
     rock_color = color.color(h, s, v)
 
@@ -201,18 +257,26 @@ def spawn_rock(pos):
         ),
         rotation=Vec3(
             random.uniform(-5, 5),
-            random.uniform(0, 360),  # rotation around X (flat spin)                       # no Y spin
-            random.uniform(-5, 5)                       # no Z roll
+            random.uniform(0, 360),
+            random.uniform(-5, 5)
         )
     )
     rock_entities.append(rock)
 
 
+# === LOTUS DECORATION ===
 
-
-
-# 🌸 Lotus leaves floating at top
 def create_lotus(x_min, x_max, y_max, z_min, z_max):
+    """
+    Create animated lotus leaf entities that float on the surface.
+
+    :param x_min: Minimum X boundary.
+    :param x_max: Maximum X boundary.
+    :param y_max: Top Y level (water surface).
+    :param z_min: Minimum Z boundary.
+    :param z_max: Maximum Z boundary.
+    :return: None
+    """
     global lotus_entities
     lotus_entities.clear()
 
@@ -222,27 +286,23 @@ def create_lotus(x_min, x_max, y_max, z_min, z_max):
 
     base_lotus = random.randint(3, 6)
     lotus_multiplier = pond_area / 100
-    num_lotus = int(base_lotus * lotus_multiplier)
-    num_lotus = clamp(num_lotus, 3, 10)
+    num_lotus = clamp(int(base_lotus * lotus_multiplier), 3, 10)
 
     for _ in range(num_lotus):
         scale = random.uniform(50, 80)
         lotus = Entity(
-            model='models/lilypad.glb',
-            color=color.green,
+            model='models/lilypad.obj',
+            color=Color(60/255, 100/255, 50/255, 1),
             position=Vec3(
                 random.uniform(x_min+0.5, x_max-0.5),
                 y_max + 0.05,
                 random.uniform(z_min+0.5, z_max-0.5)
             ),
             scale=scale,
-            rotation=Vec3(
-                0,
-                random.uniform(0, 360),
-                0
-            )
+            rotation=Vec3(0, random.uniform(0, 360), 0)
         )
 
+        # Bobbing animation using time-based sine wave
         lotus.original_y = lotus.y
         lotus.bob_speed = random.uniform(0.5, 1.5)
         lotus.bob_height = random.uniform(0.01, 0.03)
@@ -251,26 +311,35 @@ def create_lotus(x_min, x_max, y_max, z_min, z_max):
             self.y = self.original_y + math.sin(time.time() * self.bob_speed) * self.bob_height
 
         lotus.update = bob
-
         lotus_entities.append(lotus)
 
 
-# 🧱 Corner pillars
+# === CORNER STRUCTURE DECORATION ===
+
 def create_corners(x_min, x_max, y_min, y_max, z_min, z_max):
+    """
+    Create structural corner pillars and connecting beams for visual flair.
+
+    :param x_min: Minimum X boundary.
+    :param x_max: Maximum X boundary.
+    :param y_min: Bottom Y level.
+    :param y_max: Top Y level.
+    :param z_min: Minimum Z boundary.
+    :param z_max: Maximum Z boundary.
+    :return: None
+    """
     global pillar_entities
     pillar_entities.clear()
 
     corners = [
-        (x_min, z_min),
-        (x_min, z_max),
-        (x_max, z_min),
-        (x_max, z_max)
+        (x_min, z_min), (x_min, z_max),
+        (x_max, z_min), (x_max, z_max)
     ]
     height = y_max - y_min
-
     pillar_color = color.gray
     beam_color = color.light_gray
 
+    # Vertical corner posts
     for (x, z) in corners:
         pillar = Entity(
             model='cube',
@@ -280,6 +349,7 @@ def create_corners(x_min, x_max, y_min, y_max, z_min, z_max):
         )
         pillar_entities.append(pillar)
 
+    # Top beams in Z direction
     for z in [z_min, z_max]:
         beam = Entity(
             model='cube',
@@ -289,6 +359,7 @@ def create_corners(x_min, x_max, y_min, y_max, z_min, z_max):
         )
         pillar_entities.append(beam)
 
+    # Top beams in X direction
     for x in [x_min, x_max]:
         beam = Entity(
             model='cube',
@@ -299,52 +370,60 @@ def create_corners(x_min, x_max, y_min, y_max, z_min, z_max):
         pillar_entities.append(beam)
 
 
-def refresh_obstacle():
-    global obstacle_entity
+# === AGENT VISUALS ===
 
-    if obstacle_entity:
-        destroy(obstacle_entity)
+def redraw_agents():
+    """
+    Destroys and recreates visual representations of all agents,
+    using colors based on the selected simulation mode.
 
-    if not simulation_config['obstacle_enabled']:
-        return
+    :return: List of Entity objects representing agents.
+    """
+    global color_choices, agent_entities
 
-    min_corner = Vec3(*simulation_config['obstacle_corner_min'])
-    max_corner = Vec3(*simulation_config['obstacle_corner_max'])
+    color_mode = simulation_config["agent_colour_mode"]
 
-    center = (min_corner + max_corner) * 0.5
-    size = max_corner - min_corner
+    # Remove existing agent visuals
+    for ent in agent_entities:
+        destroy(ent)
 
-    obstacle_entity = Entity(
-        model='cube',
-        color=simulation_config['obstacle_colour'],
-        position=center,
-        scale=size,
-        collider='box'
-    )
+    # Assign new randomized color to each agent
+    for agent in Agent.all_agents:
+        multi = color_mode == "multi"
+        agent.color = generate_agent_color(color_mode, multi_mode=multi)
 
-boundary = create_boundary()
-def reset_boundaries():
-    global boundary
+    # Spawn new agent visuals with correct color and position
+    agent_entities = [
+        Entity(
+            model='models/tailor2.obj',
+            texture='textures/Tailor_low_DefaultMaterial_BaseColor.png'
+                     if simulation_config.get("fish_texture_enabled", True) else None,
+            color=agent.color,
+            scale=simulation_config["agent_scale"],
+            position=agent.position,
+            rotation=Vec3(90, -90, 0)  # consistent facing direction
+        )
+        for agent in Agent.all_agents
+    ]
 
-    # Destroy current boundary
-    if boundary:
-        for wall in boundary:
-            destroy(wall)
+    return agent_entities
 
-    # Recreate boundary using current config
-    boundary = create_boundary()
-
+# === AGENT INITIALIZATION ===
 
 def spawn_agents():
-    print(f"SPAWNING AGENTS ------")
+    """
+    Spawn agent objects within the 3D world with randomized positions and directions.
+
+    :return: A list of all Agent instances created.
+    """
     Agent.all_agents.clear()
 
     for _ in range(simulation_config["num_agents"]):
         agent = Agent(
             position=[
-                random.uniform(*simulation_config["init_position_bounds"]),
-                random.uniform(*simulation_config["init_position_bounds"]),
-                random.uniform(*simulation_config["init_position_bounds"])
+                random.uniform(simulation_config["x_min"], simulation_config["x_max"]),
+                random.uniform(simulation_config["y_min"], simulation_config["y_max"]),
+                random.uniform(simulation_config["z_min"], simulation_config["z_max"])
             ],
             direction=[
                 random.uniform(*simulation_config["init_direction_bounds"]),
@@ -355,79 +434,141 @@ def spawn_agents():
 
     return Agent.all_agents
 
-from ursina import Mesh
 
-def create_arrowhead_mesh():
-    vertices = [
-        (0.0,  0.0,  1.0),   # tip
-        (-0.2, -0.2, 0.0),   # base 1
-        ( 0.2, -0.2, 0.0),   # base 2
-        ( 0.2,  0.2, 0.0),   # base 3
-        (-0.2,  0.2, 0.0)    # base 4
-    ]
-    faces = [
-        (0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 1),  # front
-        (2, 1, 0), (3, 2, 0), (4, 3, 0), (1, 4, 0)   # backfaces
-    ]
-    return Mesh(vertices=vertices, triangles=faces, mode='triangle')
+# === OBSTACLE SETUP ===
 
+def refresh_obstacle():
+    """
+    Create or replace the obstacle in the simulation environment
+    based on the current configuration.
 
-def redraw_agents():
-    global color_choices, agent_entities
+    :return: None
+    """
+    global obstacle_entity
 
-    color_mode = simulation_config["agent_colour_mode"]
+    # Destroy existing obstacle if present
+    if obstacle_entity:
+        destroy(obstacle_entity)
 
-    for ent in agent_entities:
-        destroy(ent)
+    # If obstacle use is disabled in the config, exit early
+    if not simulation_config['obstacle_enabled']:
+        return
 
-    for agent in Agent.all_agents:
-        if color_mode == "multi":
-            base = getattr(color, color_mode, color.cyan)
-            v = clamp(base.v * random.uniform(0.7, 1.8), 0, 1)
-            s = clamp(base.s * random.uniform(0.6, 1.3), 0, 1)
-            h = base.h + random.uniform(-180, 180)
+    # Define obstacle placement and size
+    min_corner = Vec3(*simulation_config['obstacle_corner_min'])
+    max_corner = Vec3(*simulation_config['obstacle_corner_max'])
+    center = (min_corner + max_corner) * 0.5
+    size = max_corner - min_corner
 
-            agent.color = color.color(h, s, v)
-        else:
-            base = getattr(color, color_mode, color.white)
-            v = clamp(base.v * random.uniform(0.7, 1.8), 0, 1)
-            s = clamp(base.s * random.uniform(0.6, 1.3), 0, 1)
-            h = base.h + random.uniform(-40, 40)
-
-            agent.color = color.color(h, s, v)
-
-    agent_entities = [
-        Entity(
-            model='models/tailor3.glb',
-            #color=agent.color,  # ← use the color set in spawn_agents
-            scale=simulation_config["agent_scale"],
-            position=agent.position,
-            rotation=Vec3(90, -90, 0)
-        )
-        for agent in Agent.all_agents
-    ]
-
-    return agent_entities
-
-def reset_simulation(recorder = None):
-    global agent_entities, boundary
+    # Create a new obstacle entity
+    obstacle_entity = Entity(
+        model='cube',
+        color=simulation_config['obstacle_colour'],
+        position=center,
+        scale=size,
+        collider='box'
+    )
 
 
-    if recorder and recorder.is_recording():
-        recorder.last_reset_frame_index = len(recorder.frames)
+# === BOUNDARY RESET ===
 
-    # Destroy the current boundary
+def reset_boundaries():
+    """
+    Reset the boundary walls and decorations based on the current configuration.
+    Invokes the reset callback if registered.
+
+    :return: None
+    """
+    global boundary
+
+    # Trigger external logic if provided
+    if _reset_frame_callback:
+        _reset_frame_callback()
+
+    # Destroy current boundary entities
+    if boundary:
+        for wall in boundary:
+            destroy(wall)
+
+    # Recreate boundary structure
+    boundary = create_boundary()
+
+
+# === SIMULATION RESET ===
+
+def reset_simulation():
+    """
+    Reset the simulation: boundaries, obstacle, camera, and agents.
+
+    :return: A list of agent Entity objects.
+    """
+    global agent_entities
+
     reset_boundaries()
     refresh_obstacle()
-
-    color_mode = simulation_config["agent_colour_mode"]
-
-    # Recreate agents and their visual entities
     spawn_agents()
     agent_entities = redraw_agents()
-
-    # Recreate camera
     set_camera()
 
     return agent_entities
 
+
+# === PERFORMANCE LOGGING AND AUTO-STAGING ===
+
+frame_data_log = []
+frame_counter = 0
+last_frame_time = None
+agent_stages = [(10, 300), (20, 300), (30, 300)]
+stage_index = 0
+stage_frame_counter = 0
+current_agent_count = agent_stages[0][0]
+
+def log_performance():
+    """
+    Logs frame performance and optionally switches stages after thresholds.
+
+    :return: True if a stage switch occurred, False otherwise.
+    """
+    global frame_counter, last_frame_time, stage_index, stage_frame_counter, current_agent_count
+
+    now = time.perf_counter()
+    frame_time = 0.0
+    if last_frame_time is not None:
+        frame_time = (now - last_frame_time) * 1000
+    last_frame_time = now
+
+    cpu = psutil.cpu_percent(interval=None)
+    systime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    num_agents = simulation_config["num_agents"]
+
+    frame_data_log.append([
+        systime, frame_counter, stage_index, frame_time, cpu, num_agents
+    ])
+
+    frame_counter += 1
+    stage_frame_counter += 1
+
+    # Handle auto stage switching
+    if stage_index >= len(agent_stages):
+        return False
+
+    if stage_frame_counter >= agent_stages[stage_index][1]:
+        stage_index += 1
+        stage_frame_counter = 0
+
+        if stage_index < len(agent_stages):
+            next_count = agent_stages[stage_index][0]
+            simulation_config["num_agents"] = next_count
+            reset_simulation()
+            print(f"\n>>> Switching to {next_count} agents (Stage {stage_index})\n")
+            return True
+        else:
+            print(">>> All stages complete.")
+            with open("frame_log.csv", "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["timestamp", "frame", "stage", "frame_time_ms", "cpu_percent", "num_agents"])
+                writer.writerows(frame_data_log)
+
+            print("[Simulation] Frame log saved to frame_log.csv.")
+
+    return False

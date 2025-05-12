@@ -1,15 +1,29 @@
 from copy import deepcopy
-from ursina import color
+from ursina import color, Entity
 import numpy as np
 
 def get_movement_model_by_name(name):
+    """
+    Factory function to return a movement model instance based on its string name.
+    Currently only supports 'Boids'.
+
+    :param name: Name of the movement model.
+    :return: Instance of the selected movement model class.
+    """
     if name == "Boids":
         from movement_model import Boids
         return Boids()
-    # Add other models here
     raise ValueError(f"Unknown movement model: {name}")
 
 def update_config(key, slider):
+    """
+    Update the simulation configuration dictionary using a slider's value.
+    Handles both single-value keys and indexed values (e.g., camera_position[0]).
+    Applies symmetry to min/max boundaries when needed.
+
+    :param key: Configuration key string, may include indexing.
+    :param slider: Ursina Slider object with a `.value` field.
+    """
     val = slider.value
 
     if '[' in key and ']' in key:
@@ -19,10 +33,11 @@ def update_config(key, slider):
     else:
         simulation_config[key] = val
 
+    # Round to integer if needed
     if key == "num_agents":
-        val = int(round(val))  # clean integer, no floaty nonsense
+        val = int(round(val))
 
-    # Symmetric boundary logic
+    # Maintain symmetry for simulation bounds
     if key == "x_max":
         simulation_config["x_min"] = -val
     elif key == "y_max":
@@ -34,8 +49,10 @@ def update_config(key, slider):
 
 def pack_boundaries(config):
     """
-    Converts boundary dictionary into a 1D NumPy array:
-    [x_min, x_max, y_min, y_max, z_min, z_max]
+    Pack boundary values from config into a 1D NumPy array.
+
+    :param config: The simulation configuration dictionary.
+    :return: Array [x_min, x_max, y_min, y_max, z_min, z_max].
     """
     return np.array([
         config["x_min"],
@@ -48,7 +65,10 @@ def pack_boundaries(config):
 
 def unpack_boundaries(boundary_array, config):
     """
-    Applies a boundary array back into the simulation_config dict.
+    Unpack boundary array values into the config dictionary.
+
+    :param boundary_array: Array [x_min, x_max, y_min, y_max, z_min, z_max].
+    :param config: The simulation configuration dictionary to update.
     """
     config["x_min"] = boundary_array[0]
     config["x_max"] = boundary_array[1]
@@ -57,18 +77,19 @@ def unpack_boundaries(boundary_array, config):
     config["z_min"] = boundary_array[4]
     config["z_max"] = boundary_array[5]
 
+# Main configuration dictionary for simulation
 simulation_config = {
-    # Core Physics Variables
+    # --- Physics and Behavior ---
     "perception_radius": 3.0,
-    "min_speed": 0.1, # Hidden
+    "min_speed": 0.1,                # Hidden (used internally)
     "max_speed": 2.0,
     "acceleration": 0.001,
     "deceleration": 0.001,
     "momentum_weight": 1.0,
-    "direction_alpha": 0.1, # Hidden
+    "direction_alpha": 0.1,         # Hidden (controls inertia)
     "turn_sensitivity": 5,
 
-    # Cohesion, Alignment, Separation
+    # --- Flocking Parameters ---
     "cohesion_radius": 3.0,
     "cohesion_weight": 1.0,
     "alignment_radius": 2.0,
@@ -76,20 +97,20 @@ simulation_config = {
     "separation_radius": 1.0,
     "separation_weight": 2.0,
 
-    # Simulation Variables
-    "movement_model": "Boids",              # The movement model
-    "camera_position": [25, 20, -75],       # Camera position
-    "camera_look_at": [0, 0, 0],            # Where the camera looks
+    # --- Simulation Control ---
+    "movement_model": "Boids",
+    "camera_position": [25, 20, -75],
+    "camera_look_at": [0, 0, 0],
     "camera_orbit_speed": 1,
-    "frame_duration": 1/60,                 # Duration of the frame per second # TO BE INVESTIGATED - Higher rate seems to make smoother movement?
-    "num_agents": 10,                       # Number of agents
-    "init_position_bounds": (-10, 10),      # Initial spawned position range for agents
-    "init_direction_bounds": (-1.0, 1.0),   # Initial spawned direction range for agents
-    "init_speed_bounds": (0.01, 0.1),       # Initial spawned speed range for agents
-    "agent_scale": 2,                     # Scale of the agent entity in Ursina
-    "agent_colour_mode": "multi",
+    "frame_duration": 1/60,
+    "num_agents": 10,
+    "init_direction_bounds": (-1.0, 1.0),
+    "init_speed_bounds": (0.01, 0.1),
+    "agent_scale": 2,
+    "agent_colour_mode": "white",
+    "fish_texture_enabled": True,
 
-    # Simulation Boundaries
+    # --- World Boundaries ---
     "x_max": 10,
     "x_min": -10,
     "y_max": 10,
@@ -100,11 +121,12 @@ simulation_config = {
     "boundary_threshold": 2.0,
     "boundary_max_force": 10.0,
 
-    # Obstacle Settings
+    # --- Obstacle Parameters ---
     "obstacle_enabled": False,
     "obstacle_corner_min": [-10, 0, -10],
     "obstacle_corner_max": [10, 1, 10],
     "obstacle_colour": color.white,
 }
 
+# A clean copy used for resets or reloads
 default_simulation_config = deepcopy(simulation_config)
