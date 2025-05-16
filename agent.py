@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: agent.py
+Description: Defines individual agent state, including position, velocity, and update logic.
+"""
+
 import random
 import numpy as np
 from config import *

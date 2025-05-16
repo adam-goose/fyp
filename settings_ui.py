@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: settings_ui.py
+Description: Defines the interactive UI system, including sliders and toggles for rule weights.
+"""
+
 from ursina import *
 from config import update_config, simulation_config, default_simulation_config
 from simulation import refresh_obstacle, reset_boundaries, redraw_agents, reset_simulation

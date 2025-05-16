@@ -1,3 +1,16 @@
+"""
+Author: Adam Zelenak
+Date: 16/05/2025
+Version: 0.7
+
+This program simulates 3D swarm behaviour using custom logic inspired by Boids principles.
+It visualises fish-like agents schooling and swimming within a cuboid pond environment,
+rendered in real time using the Ursina game engine.
+
+Agents react to local neighbours using alignment, cohesion, and separation rules,
+with real-time parameter tuning, visual feedback, and optional recording/playback functionality.
+"""
+
 from ursina import *
 app = Ursina()
 window.render_mode = 'forward'

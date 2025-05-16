@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: config.py
+Description: Houses the global configuration dictionary used across the simulation.
+"""
+
 from copy import deepcopy
 from ursina import color, Entity
 import numpy as np
@@ -103,7 +110,7 @@ simulation_config = {
     "camera_look_at": [0, 0, 0],
     "camera_orbit_speed": 1,
     "frame_duration": 1/60,
-    "num_agents": 10,
+    "num_agents": 30,
     "init_direction_bounds": (-1.0, 1.0),
     "init_speed_bounds": (0.01, 0.1),
     "agent_scale": 2,

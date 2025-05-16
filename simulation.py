@@ -1,3 +1,11 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: simulation.py
+Description: Coordinates the overall simulation, including agent spawning, environment setup,
+UI binding, and real-time updates. Acts as the primary runtime logic hub for the system.
+"""
+
 import csv
 import random
 import time
@@ -518,7 +526,10 @@ def reset_simulation():
 frame_data_log = []
 frame_counter = 0
 last_frame_time = None
-agent_stages = [(10, 300), (20, 300), (30, 300)]
+agent_stages = [
+    (10, 300), (20, 300), (30, 300), (40, 300),
+    (50, 300), (60, 300), (70, 300), (80, 300)
+]
 stage_index = 0
 stage_frame_counter = 0
 current_agent_count = agent_stages[0][0]

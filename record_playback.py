@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: record_playback.py
+Description: Handles simulation recording and playback using per-frame position/direction data.
+"""
+
 import numpy as np
 import os
 from datetime import datetime

@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: movement_model.py
+Description: Contains the core Boids-based movement logic: cohesion, separation, and alignment.
+"""
+
 from config import simulation_config
 from agent import Agent
 from physics import *

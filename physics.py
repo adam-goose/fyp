@@ -1,3 +1,10 @@
+"""
+Author: Adam Zelenak
+Part of the 3D Swarm Simulation Project
+File: physics.py
+Description: Implements boundary and obstacle repulsion forces applied to agents.
+"""
+
 import numpy as np
 from config import simulation_config
 
